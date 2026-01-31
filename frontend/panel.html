@@ -13,19 +13,18 @@
         <h1>Ableton Control</h1>
         <div class="status" id="status">Ready to Rock</div>
 
+        <!-- Static Controls (Always there) -->
         <div class="controls">
-            <button class="btn btn-start" onclick="sendCommand('start')">▶ Play</button>
-            <button class="btn btn-stop" onclick="sendCommand('stop')">⏹ Stop</button>
+            <button class="btn btn-start" id="btn-start">▶ Play</button>
+            <button class="btn btn-stop" id="btn-stop">⏹ Stop</button>
         </div>
 
+        <!-- Dynamic Triggers (Loaded from Config) -->
         <div class="triggers">
-            <h3>Triggers (Bits)</h3>
-            <button class="btn btn-trigger" onclick="sendTrigger('clip1', 100)">
-                🎹 C3 Chord (100 Bits)
-            </button>
-            <button class="btn btn-trigger" onclick="sendTrigger('clip2', 500)">
-                🥁 Drum Fill (500 Bits)
-            </button>
+            <h3>Triggers</h3>
+            <div id="dynamic-triggers">
+                <div class="loading">Loading buttons...</div>
+            </div>
         </div>
     </div>
 

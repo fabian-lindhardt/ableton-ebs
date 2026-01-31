@@ -74,6 +74,8 @@ const verifyTwitchToken = (req, res, next) => {
         next();
     } catch (err) {
         console.error('JWT Verification failed:', err.message);
+        console.error('Token:', token);
+        console.error('Secret Length:', EXTENSION_SECRET.length);
         return res.status(403).json({ success: false, message: 'Invalid token' });
     }
 };

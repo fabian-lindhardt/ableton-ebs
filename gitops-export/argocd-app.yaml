@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ableton-ebs
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/flairtec-ops/infra.git
+    targetRevision: main
+    path: apps # Hierhin hast du die ableton-ebs.yaml geladen
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ableton-ebs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

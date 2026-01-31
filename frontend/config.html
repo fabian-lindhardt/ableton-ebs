@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ableton Extension Config</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="config-body">
+    <div class="config-app">
+        <h1>Extension Trigger Configuration</h1>
+        <p>Define the buttons your viewers will see.</p>
+
+        <!-- Current Triggers List -->
+        <div id="trigger-list" class="trigger-list">
+            <!-- Items injected by JS -->
+            <div class="empty-state">No triggers defined yet.</div>
+        </div>
+
+        <!-- Add New Trigger Form -->
+        <div class="add-form">
+            <h3>Add New Trigger</h3>
+
+            <div class="form-group">
+                <label>Label</label>
+                <input type="text" id="new-label" placeholder="e.g. Drop the Bass">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="new-type">
+                        <option value="noteon">Note On</option>
+                        <option value="cc">CC (Control Change)</option>
+                        <option value="start">Transport Play</option>
+                        <option value="stop">Transport Stop</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Color</label>
+                    <input type="color" id="new-color" value="#9146FF">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Val / Note #</label>
+                    <input type="number" id="new-value" placeholder="Note (0-127)" min="0" max="127">
+                </div>
+                <div class="form-group">
+                    <label>Vel / Desired Val</label>
+                    <input type="number" id="new-velocity" placeholder="Velocity (0-127)" min="0" max="127" value="127">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Bit Cost (0 = Free)</label>
+                <input type="number" id="new-cost" value="0" min="0">
+            </div>
+
+            <button id="btn-add" class="btn btn-primary">Add Trigger +</button>
+        </div>
+    </div>
+
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <script src="config.js"></script>
+</body>
+
+</html>

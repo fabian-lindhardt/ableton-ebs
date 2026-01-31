@@ -1,0 +1,14 @@
+{
+  "name": "twitch-ableton-bridge",
+  "version": "1.0.0",
+  "description": "Local Node.js service to bridge WebSocket commands to MIDI",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "jzz": "^1.0.0",
+    "ws": "^8.0.0",
+    "dotenv": "^16.0.0"
+  }
+}

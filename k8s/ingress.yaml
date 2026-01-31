@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ableton-ebs-ingress
+  annotations:
+    kubernetes.io/ingress.class: "traefik" # Standard for k3s
+    cert-manager.io/cluster-issuer: "letsencrypt-prod" # Assuming cert-manager is present like in typical setups
+spec:
+  tls:
+  - hosts:
+    - abletonlivechat.flairtec.de
+    secretName: ableton-ebs-tls
+  rules:
+  - host: abletonlivechat.flairtec.de
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ableton-ebs
+            port:
+              number: 80

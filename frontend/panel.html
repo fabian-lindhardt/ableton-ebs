@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ableton Control</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app">
+        <h1>Ableton Control</h1>
+        <div class="status" id="status">Ready to Rock</div>
+
+        <div class="controls">
+            <button class="btn btn-start" onclick="sendCommand('start')">▶ Play</button>
+            <button class="btn btn-stop" onclick="sendCommand('stop')">⏹ Stop</button>
+        </div>
+
+        <div class="triggers">
+            <h3>Triggers (Bits)</h3>
+            <button class="btn btn-trigger" onclick="sendTrigger('clip1', 100)">
+                🎹 C3 Chord (100 Bits)
+            </button>
+            <button class="btn btn-trigger" onclick="sendTrigger('clip2', 500)">
+                🥁 Drum Fill (500 Bits)
+            </button>
+        </div>
+    </div>
+
+    <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+    <script src="viewer.js"></script>
+</body>
+
+</html>

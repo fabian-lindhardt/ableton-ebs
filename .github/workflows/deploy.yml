@@ -47,6 +47,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Copy k8s files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.K3S_HOST }}
+          username: ${{ env.K3S_USER }}
+          key: ${{ secrets.K3S_SSH_KEY }}
+          source: "k8s/*"
+          target: "/tmp/ableton-ebs-deploy"
+
       - name: Deploy to K3s via SSH
         uses: appleboy/ssh-action@master
         with:
@@ -54,9 +63,9 @@ jobs:
           username: ${{ env.K3S_USER }}
           key: ${{ secrets.K3S_SSH_KEY }}
           script: |
-            # Pull new image (optional, deployment restart handles it if imagePullPolicy is Always)
-            # Apply manifests
-            # Assuming you will clone this repo on the server OR copy files. 
-            # A simpler way is to just write the content via echo or use scp-action.
-            # But let's assume we just want to force a rollout restart of the deployment
+            # Apply the manifests from the copied directory
+            kubectl apply -f /tmp/ableton-ebs-deploy/k8s/
+            
+            # Force restart to pick up new image
             kubectl rollout restart deployment/ableton-ebs
+

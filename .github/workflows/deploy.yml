@@ -32,40 +32,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: ./ebs
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+# Deploy job removed for GitOps (ArgoCD handles deployment)
 
-      - name: Copy k8s files to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ env.K3S_HOST }}
-          username: ${{ env.K3S_USER }}
-          key: ${{ secrets.K3S_SSH_KEY }}
-          source: "k8s/*"
-          target: "/tmp/ableton-ebs-deploy"
-
-      - name: Deploy to K3s via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.K3S_HOST }}
-          username: ${{ env.K3S_USER }}
-          key: ${{ secrets.K3S_SSH_KEY }}
-          script: |
-            # Apply the manifests from the copied directory
-            kubectl apply -f /tmp/ableton-ebs-deploy/k8s/
-            
-            # Force restart to pick up new image
-            kubectl rollout restart deployment/ableton-ebs
 

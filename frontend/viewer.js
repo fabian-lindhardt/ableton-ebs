@@ -127,3 +127,12 @@ function updateStatus(msg) {
     const el = document.getElementById('status');
     if (el) el.innerText = msg;
 }
+
+// Listen for the onAuthorized event to get the JWT
+if (twitch) {
+    twitch.onAuthorized((auth) => {
+        console.log('Twitch Authorized:', auth);
+        authToken = auth.token;
+        updateStatus('Connected to Twitch!');
+    });
+}

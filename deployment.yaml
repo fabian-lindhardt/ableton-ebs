@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ableton-ebs
+  namespace: ableton-ebs
+  labels:
+    app: ableton-ebs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ableton-ebs
+  template:
+    metadata:
+      labels:
+        app: ableton-ebs
+    spec:
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: ebs
+        image: ghcr.io/fabian-lindhardt/ableton-ebs:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: TWITCH_CHANNEL_ID
+          value: "407780947"
+        - name: TWITCH_CLIENT_ID
+          value: "61aryh4yx4v94a1309tk5dqz8kyrvp"
+        - name: TWITCH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ableton-ebs-secrets
+              key: TWITCH_SECRET
+        - name: TWITCH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ableton-ebs-secrets
+              key: TWITCH_CLIENT_SECRET

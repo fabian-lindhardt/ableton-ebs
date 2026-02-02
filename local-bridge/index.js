@@ -68,7 +68,7 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
                                 const controller = msg[1];
                                 const value = msg[2] || 0;
 
-                                // console.log(`MIDI IN: Ch${channel} CC${controller} Val${value}`);
+                                console.log(`MIDI IN: Ch${channel} CC${controller} Val${value}`);
                                 broadcastSync(channel, controller, value);
                             }
                         }
@@ -84,18 +84,56 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
 
 // Helper: Broadcast Sync to EBS
 let wsConnection = null;
+const syncThrottles = new Map(); // Key: "ch-ctrl", Value: { lastRun: 0, timeout: null }
+const SYNC_RATE_LIMIT = 50; // Minimal buffer
+
 function broadcastSync(channel, controller, value) {
-    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
-        const payload = {
-            type: 'sync',
-            data: {
-                channel,
-                controller,
-                value
-            }
-        };
-        wsConnection.send(JSON.stringify(payload));
+    if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;
+
+    const key = `${channel}-${controller}`;
+    const now = Date.now();
+
+    // Get or Init Throttle State
+    let state = syncThrottles.get(key);
+    if (!state) {
+        state = { lastRun: 0, timeout: null };
+        syncThrottles.set(key, state);
     }
+
+    // Clear any pending trailing update
+    if (state.timeout) {
+        clearTimeout(state.timeout);
+        state.timeout = null;
+    }
+
+    const timeSinceLast = now - state.lastRun;
+
+    if (timeSinceLast >= SYNC_RATE_LIMIT) {
+        // Send Immediately
+        sendSyncPayload(channel, controller, value);
+        state.lastRun = now;
+    } else {
+        // Schedule Trailing Update
+        const delay = SYNC_RATE_LIMIT - timeSinceLast;
+        state.timeout = setTimeout(() => {
+            sendSyncPayload(channel, controller, value);
+            state.lastRun = Date.now();
+            state.timeout = null;
+        }, delay);
+    }
+}
+
+function sendSyncPayload(channel, controller, value) {
+    console.log(`Broadcasting Sync: Ch${channel} CC${controller} Val${value}`);
+    const payload = {
+        type: 'sync',
+        data: {
+            channel,
+            controller,
+            value
+        }
+    };
+    wsConnection.send(JSON.stringify(payload));
 }
 
 // 2. Connect to EBS
@@ -145,7 +183,7 @@ function handleCommand(cmd) {
                 midiOutput.noteOn(ch, note || 60, velocity || 127);
             } else if (action === 'noteoff') {
                 midiOutput.noteOff(ch, note || 60, velocity || 0);
-            } else if (action === 'cc' || action === 'fader') {
+            } else if (action === 'cc' || action === 'fader' || action === 'knob') {
                 // Ensure values are integers
                 const ctrl = parseInt(controller) || 1;
                 const val = parseInt(value) || 0;

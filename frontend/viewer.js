@@ -40,7 +40,7 @@ twitch.listen('broadcast', (target, contentType, message) => {
     try {
         // message is a JSON string
         const data = JSON.parse(message);
-        // console.log('Received Broadcast:', data);
+        console.log('Received Broadcast:', data);
 
         if (data.type === 'sync') {
             handleSync(data.data);
@@ -69,6 +69,9 @@ function handleSync(syncData) {
                         const input = wrapper.querySelector('input');
                         const display = wrapper.querySelector('.fader-value-display');
                         if (input && display) {
+                            // BLOCK if user is dragging this fader!
+                            if (wrapper.isDragging) return;
+
                             input.value = value;
                             display.innerText = value;
                             wrapper.style.setProperty('--val-percent', (value / 127) * 100 + '%');
@@ -156,6 +159,19 @@ function renderButtons() {
                 wrapper.style.setProperty('--val-percent', (val / 127) * 100 + '%');
             });
 
+            // Tracking Drag State to prevent Feedback Loop Jank
+            wrapper.isDragging = false;
+
+            const startDrag = () => { wrapper.isDragging = true; };
+            const stopDrag = () => { wrapper.isDragging = false; };
+
+            input.addEventListener('mousedown', startDrag);
+            input.addEventListener('touchstart', startDrag);
+
+            input.addEventListener('mouseup', stopDrag);
+            input.addEventListener('touchend', stopDrag);
+            input.addEventListener('change', stopDrag); // Safety
+
             // Manual Edit
             makeEditable(valDisplay, () => parseInt(input.value), (newVal) => {
                 input.value = newVal;
@@ -213,17 +229,60 @@ function renderButtons() {
 
                 valueText.innerText = val;
 
-                // Update Ring Dashoffset (Circumference ~251)
-                const circumference = 2 * Math.PI * 40;
-                const offset = circumference - (percent * (circumference * 0.75)); // 75% circle stroke
-                valueRing.style.strokeDasharray = `${circumference} ${circumference}`;
-                valueRing.style.strokeDashoffset = offset;
+                // Visual Ring Logic
+                const circumference = 2 * Math.PI * 40; // ~251.3
+                const maxArc = circumference * 0.75; // ~188.5
 
-                wrapper.style.setProperty('--item-color', `hsl(${100 + (val)}, 100%, 50%)`); // Dynamic Color Shift? optional
+                // Check for Pan Mode (Bipolar)
+                const isPan = (trigger.style === 'pan') || (trigger.label.toLowerCase().includes('pan'));
+
+                if (isPan) {
+                    // Bipolar: Center is 64. Fill outwards.
+                    // Center of Arc is at 50% of maxArc (~94.25px from start)
+                    const centerArc = maxArc / 2;
+                    let dashLength = 0;
+                    let startOffset = 0;
+
+                    if (val >= 64) {
+                        // Right Side: Center -> Right
+                        // Length = (Val - 64) scaled
+                        const relVal = (val - 64) / 63.5; // 0 to 1
+                        dashLength = relVal * centerArc;
+                        startOffset = centerArc; // Start drawing at center
+                    } else {
+                        // Left Side: Left <- Center
+                        // Length = (64 - Val) scaled
+                        const relVal = (64 - val) / 64; // 0 to 1
+                        dashLength = relVal * centerArc;
+                        startOffset = centerArc - dashLength; // Start drawing before center
+                    }
+
+                    // For SVG, negative offset moves start point forward
+                    valueRing.style.strokeDasharray = `${dashLength} ${circumference}`;
+                    valueRing.style.strokeDashoffset = -startOffset;
+
+                    // Optional: Color logic for center
+                    if (val === 64) {
+                        wrapper.style.setProperty('--item-color', '#ffffff'); // White at center
+                    } else {
+                        // Default logic or static
+                        const color = trigger.color || '#9146FF';
+                        wrapper.style.setProperty('--item-color', color);
+                    }
+
+                } else {
+                    // Standard Unipolar (0 -> Val)
+                    const offset = circumference - (percent * maxArc);
+                    valueRing.style.strokeDasharray = `${circumference} ${circumference}`;
+                    valueRing.style.strokeDashoffset = offset;
+                    wrapper.style.setProperty('--item-color', `hsl(${100 + (val)}, 100%, 50%)`);
+                }
             };
 
             // Init
-            updateKnobVisual(0);
+            const initialVal = (trigger.style === 'pan' || trigger.label.toLowerCase().includes('pan')) ? 64 : 0;
+            updateKnobVisual(initialVal);
+            currentValue = initialVal;
 
             // Expose for Sync
             wrapper.updateVisual = (val) => {
@@ -430,7 +489,7 @@ async function sendSmartTrigger(trigger) {
     if (trigger.type === 'noteon' || trigger.type === 'noteoff') {
         midiData.note = trigger.value;       // Note Number
         midiData.velocity = trigger.velocity;
-    } else if (trigger.type === 'cc' || trigger.type === 'fader') {
+    } else if (trigger.type === 'cc' || trigger.type === 'fader' || trigger.type === 'knob') {
         midiData.controller = trigger.controller; // CC Number
         midiData.value = trigger.value;          // CC Value
         // 'note' is undefined here, removing ambiguity
@@ -483,6 +542,39 @@ if (twitch) {
         console.log('Twitch Authorized:', auth);
         authToken = auth.token;
         updateStatus('Connected to Twitch!');
+
+        // Fetch Initial State from EBS
+        fetchState();
+    });
+}
+
+async function fetchState() {
+    try {
+        // EBS_API is .../api/trigger. We need .../api/state
+        const stateUrl = EBS_API.replace('/trigger', '/state');
+        const res = await fetch(stateUrl, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (res.ok) {
+            const state = await res.json();
+            console.log('Initial State:', state);
+            applyState(state);
+        }
+    } catch (e) {
+        console.error('Failed to fetch state:', e);
+    }
+}
+
+function applyState(state) {
+    // state is { "ch-cc": val, ... }
+    Object.keys(state).forEach(key => {
+        const [chStr, ccStr] = key.split('-');
+        const ch = parseInt(chStr);
+        const cc = parseInt(ccStr);
+        const val = state[key];
+
+        // Call handleSync for each cached item
+        handleSync({ channel: ch, controller: cc, value: val });
     });
 }
 

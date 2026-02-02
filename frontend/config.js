@@ -218,8 +218,10 @@ function deleteTrigger(index) {
         if (parseInt(document.getElementById('edit-index').value) == index) {
             cancelEdit();
         }
+    } else {
+        console.log('Deletion cancelled by user');
     }
-};
+}
 
 // Save to Twitch Configuration Service
 function saveConfig() {

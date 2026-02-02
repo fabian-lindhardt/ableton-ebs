@@ -18,6 +18,9 @@ app.use(express.static('../frontend')); // Serve frontend files
 
 let bridgeSocket = null;
 
+// State Cache (Key: "ch-cc", Value: val)
+const stateCache = new Map();
+
 // WebSocket handling
 wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
@@ -33,6 +36,11 @@ wss.on('connection', (ws) => {
             // 2. Sync from Bridge (Ableton -> Extension)
             if (data.type === 'sync') {
                 console.log('Received Sync:', data.data);
+
+                // Update Cache
+                const key = `${data.data.channel}-${data.data.controller}`;
+                stateCache.set(key, data.data.value);
+
                 // Broadcast to Twitch PubSub
                 await broadcastToPubSub(data);
             }
@@ -139,11 +147,24 @@ const verifyTwitchToken = (req, res, next) => {
     }
 };
 
+// Get Current State (Initial Sync)
+app.get('/api/state', verifyTwitchToken, (req, res) => {
+    // Convert Map to Object
+    const stateObj = Object.fromEntries(stateCache);
+    res.json(stateObj);
+});
+
 // Endpoint to simulate a Bit transaction or Trigger from Frontend
 app.post('/api/trigger', verifyTwitchToken, (req, res) => {
     const { action, midi } = req.body;
 
     console.log(`Received trigger from ${req.user ? req.user.role : 'dev'}: ${action}`, midi);
+
+    // Update Cache from Frontend Actions too (Optimistic update)
+    if (midi.action === 'cc' || midi.action === 'fader' || midi.action === 'knob') {
+        const key = `${midi.channel || 0}-${midi.controller}`;
+        stateCache.set(key, midi.value);
+    }
 
     if (bridgeSocket) {
         bridgeSocket.send(JSON.stringify({

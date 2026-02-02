@@ -223,11 +223,14 @@ input[type=range].fader-input {
     /* Rotate to vertical */
     transform: rotate(-90deg);
     width: 100px;
-    /* Length of fader */
     margin: 40px 0;
-    /* Clear space for rotation */
 
     box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+
+    /* Interpolated Value Display using Gradient */
+    background: linear-gradient(to right, var(--item-color) 0%, var(--item-color) var(--val-percent, 0%), rgba(255, 255, 255, 0.1) var(--val-percent, 0%), rgba(255, 255, 255, 0.1) 100%);
+    transition: background-size 0.3s linear, background 0.3s linear;
+    /* Smooth visual updates */
 }
 
 /* Slider Thumb */
@@ -348,11 +351,7 @@ input[type=range].fader-input::-moz-range-thumb {
 .knob-svg {
     width: 100%;
     height: 100%;
-    transform: rotate(135deg);
-    /* Start from bottom left? No, let's keep it simple 0 is top. Wait, standard is 7 o'clock to 5 o'clock */
-    /* If we map -135 to 135, 0 is top. 
-       Let's rotate the whole SVG 180deg to put gap at bottom? 
-       Actually JS handles rotation. Let's just style strokes. */
+    /* removed global rotation so marker logic (0 = up) works */
     overflow: visible;
 }
 
@@ -361,6 +360,9 @@ input[type=range].fader-input::-moz-range-thumb {
     stroke: rgba(255, 255, 255, 0.1);
     stroke-width: 8;
     stroke-linecap: round;
+    /* Rotate track to start at bottom left */
+    transform: rotate(135deg);
+    transform-origin: 50% 50%;
 }
 
 .knob-value-ring {
@@ -368,6 +370,9 @@ input[type=range].fader-input::-moz-range-thumb {
     stroke: var(--item-color);
     stroke-width: 8;
     stroke-linecap: round;
+    /* Rotate ring to match track */
+    transform: rotate(135deg);
+    transform-origin: 50% 50%;
     /* Dasharray set in JS */
     transition: stroke-dashoffset 0.1s linear;
     filter: drop-shadow(0 0 5px var(--item-color));
@@ -377,6 +382,11 @@ input[type=range].fader-input::-moz-range-thumb {
     stroke: white;
     stroke-width: 3;
     stroke-linecap: round;
+}
+
+.knob-rotator {
+    transition: transform 0.1s linear;
+    transform-origin: 50px 50px;
 }
 
 .knob-value-text {
@@ -462,4 +472,25 @@ input[type=range].fader-input::-moz-range-thumb {
     background: #222;
     border: 1px solid #444;
     color: white;
+}
+
+/* Config Action Buttons */
+.btn-edit,
+.btn-delete {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-edit:hover {
+    background: rgba(0, 255, 148, 0.3);
+    border-color: var(--accent-color);
+}
+
+.btn-delete:hover {
+    background: rgba(255, 0, 0, 0.3);
+    border-color: #ff4444;
 }

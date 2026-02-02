@@ -31,12 +31,6 @@ spec:
           volumeMounts:
             - name: frontend-code
               mountPath: /usr/share/nginx/html
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 80
-            initialDelaySeconds: 5
-            periodSeconds: 10
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -67,8 +61,16 @@ spec:
         - name: signaling
           image: node:18-alpine
           workingDir: /usr/src/app
-          # PATCH: We remove the SSL certificate loading lines that cause the crash
-          command: ["sh", "-c", "npm install && sed -i 's/.*privkey.pem.*//g' server.js && sed -i 's/.*fullchain.pem.*//g' server.js && node server.js"]
+          # FIX: Replacing the SSL server creation block with plain HTTP.
+          # We search for the https require and createServer block and replace it.
+          command: 
+            - "sh"
+            - "-c"
+            - |
+              npm install && \
+              sed -i 's/const https = require(.https.);/const https = require(.http.);/g' server.js && \
+              sed -i 's/https.createServer(options, app)/https.createServer(app)/g' server.js && \
+              node server.js
           env:
             - name: PORT
               value: "3000"

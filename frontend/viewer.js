@@ -587,12 +587,8 @@ function startAudioStream() {
     if (!finalUrl.includes('?')) finalUrl += "?";
     else if (!finalUrl.endsWith('?') && !finalUrl.endsWith('&')) finalUrl += "&";
 
-    const urlParams = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart&cleanoutput`;
+    const urlParams = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart`;
     finalUrl += urlParams;
-
-    if (finalUrl.includes('flairtec.de')) {
-        finalUrl += `&wss=vdo.flairtec.de`;
-    }
 
     console.log("Injecting audio iframe with URL:", finalUrl);
     container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media; microphone; fullscreen"></iframe>`;

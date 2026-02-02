@@ -428,7 +428,9 @@ function throttle(func, limit) {
     }
 }
 
-const EBS_API = 'http://localhost:8080/api/trigger';
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const EBS_BASE = IS_LOCAL ? 'http://localhost:8080' : 'https://abletonlivechat.flairtec.de';
+const EBS_API = `${EBS_BASE}/api/trigger`;
 async function sendCommand(type) {
     updateStatus('Transport: ' + type);
     await sendEBS({ action: type, midi: { action: type } });

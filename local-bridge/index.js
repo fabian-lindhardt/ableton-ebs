@@ -11,41 +11,98 @@ console.log('--- Twitch Ableton Local Bridge (JZZ) ---');
 let midiOutput = null;
 
 // Initialize JZZ
+// Initialize JZZ
 JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
     .and(function () {
         const info = this.info();
         console.log('Available MIDI Outputs:', info.outputs.map(x => x.name));
+        console.log('Available MIDI Inputs:', info.inputs.map(x => x.name));
 
-        let found = false;
+        let foundOut = false;
+        let foundIn = false;
 
         // Try to find the port by name
-        // JZZ.openMidiOut name matching is strict, so we iterate to find a partial match or exact match
-        const portName = info.outputs.find(x => x.name.includes(MIDI_PORT_SEARCH))?.name;
+        const portNameOut = info.outputs.find(x => x.name.includes(MIDI_PORT_SEARCH))?.name;
+        const portNameIn = info.inputs.find(x => x.name.includes(MIDI_PORT_SEARCH))?.name;
 
-        if (portName) {
-            console.log(`Found MIDI Port: ${portName}`);
-            this.openMidiOut(portName).or(function () {
-                console.log('Failed to open port.');
+        // --- OUTPUT ---
+        if (portNameOut) {
+            console.log(`Found MIDI Output Port: ${portNameOut}`);
+            this.openMidiOut(portNameOut).or(function () {
+                console.log('Failed to open Output port.');
             }).and(function () {
-                console.log(`Connected to MIDI Output: ${portName}`);
+                console.log(`Connected to MIDI Output: ${portNameOut}`);
                 midiOutput = this;
-                found = true;
+                foundOut = true;
             });
         } else {
-            console.log(`Port "${MIDI_PORT_SEARCH}" not found. Trying first available...`);
+            console.log(`Output Port "${MIDI_PORT_SEARCH}" not found. Trying first available...`);
             if (info.outputs.length > 0) {
                 this.openMidiOut(info.outputs[0].name).and(function () {
-                    console.log(`Connected to: ${info.outputs[0].name}`);
+                    console.log(`Connected to Output: ${info.outputs[0].name}`);
                     midiOutput = this;
-                    found = true;
+                    foundOut = true;
                 });
             }
         }
+
+        // --- INPUT (For Sync) ---
+        if (portNameIn) {
+            console.log(`Found MIDI Input Port: ${portNameIn}`);
+            this.openMidiIn(portNameIn).or(function () {
+                console.log('Failed to open Input port.');
+            }).and(function () {
+                console.log(`Connected to MIDI Input: ${portNameIn}`);
+                foundIn = true;
+
+                // Listen for CC
+                // Listen for CC
+                this.connect(function (msg) {
+                    try {
+                        // Safe manual parsing
+                        if (msg && msg.length >= 2) {
+                            const status = msg[0];
+                            // CC is range 0xB0 - 0xBF (176 - 191)
+                            if (status >= 176 && status <= 191) {
+                                const channel = status & 0x0F;
+                                const controller = msg[1];
+                                const value = msg[2] || 0;
+
+                                // console.log(`MIDI IN: Ch${channel} CC${controller} Val${value}`);
+                                broadcastSync(channel, controller, value);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('MIDI Input Error:', e);
+                    }
+                });
+            });
+        } else {
+            console.log(`Input Port "${MIDI_PORT_SEARCH}" not found. Sync unavailable.`);
+        }
     });
 
+// Helper: Broadcast Sync to EBS
+let wsConnection = null;
+function broadcastSync(channel, controller, value) {
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        const payload = {
+            type: 'sync',
+            data: {
+                channel,
+                controller,
+                value
+            }
+        };
+        wsConnection.send(JSON.stringify(payload));
+    }
+}
+
+// 2. Connect to EBS
 // 2. Connect to EBS
 function connectToEBS() {
-    const ws = new WebSocket(EBS_URL);
+    wsConnection = new WebSocket(EBS_URL);
+    const ws = wsConnection;
 
     ws.on('open', () => {
         console.log('Connected to Extension Backend Service (EBS)');
@@ -75,7 +132,7 @@ function connectToEBS() {
 // 3. Handle Commands
 function handleCommand(cmd) {
     if (!midiOutput) {
-        console.log('Cannot send MIDI: Output not connected.');
+        // console.log('Cannot send MIDI: Output not connected.');
         return;
     }
 
@@ -88,23 +145,20 @@ function handleCommand(cmd) {
                 midiOutput.noteOn(ch, note || 60, velocity || 127);
             } else if (action === 'noteoff') {
                 midiOutput.noteOff(ch, note || 60, velocity || 0);
-            } else if (action === 'cc') {
-                midiOutput.control(ch, controller || 1, value || 127);
+            } else if (action === 'cc' || action === 'fader') {
+                // Ensure values are integers
+                const ctrl = parseInt(controller) || 1;
+                const val = parseInt(value) || 0;
+                midiOutput.control(ch, ctrl, val);
             } else if (action === 'start') {
-                // START MAPPING: Sends Note 126 on Channel 16 (index 15)
-                console.log('Sending Transport Play Note (126)');
                 midiOutput.noteOn(15, 126, 127);
             } else if (action === 'stop') {
-                // STOP MAPPING: Sends Note 127 on Channel 16 (index 15)
-                console.log('Sending Transport Stop Note (127)');
                 midiOutput.noteOn(15, 127, 127);
             }
-            // console.log(`Sent Command: ${action}`);
         } catch (e) {
             console.error('Error sending MIDI:', e);
         }
     }
 }
-
 
 connectToEBS();

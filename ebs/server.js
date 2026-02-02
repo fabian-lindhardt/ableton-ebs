@@ -20,15 +20,25 @@ let bridgeSocket = null;
 
 // WebSocket handling
 wss.on('connection', (ws) => {
-    ws.on('message', (message) => {
+    ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
+            
+            // 1. Identification
             if (data.type === 'identify' && data.role === 'bridge') {
-                console.log('Locald Bridge connected.');
+                console.log('Local Bridge connected.');
                 bridgeSocket = ws;
             }
+
+            // 2. Sync from Bridge (Ableton -> Extension)
+            if (data.type === 'sync') {
+                // console.log('Received Sync:', data.data);
+                // Broadcast to Twitch PubSub
+                await broadcastToPubSub(data);
+            }
+
         } catch (e) {
-            // ignore
+            console.error('WS Error:', e);
         }
     });
 
@@ -39,6 +49,55 @@ wss.on('connection', (ws) => {
         }
     });
 });
+
+// Helper: Broadcast to Twitch PubSub
+async function broadcastToPubSub(payload) {
+    const channelId = process.env.TWITCH_CHANNEL_ID;
+    const clientId = process.env.TWITCH_CLIENT_ID;
+
+    if (!channelId || !clientId) {
+        console.error('Missing TWITCH_CHANNEL_ID or TWITCH_CLIENT_ID for PubSub.');
+        return;
+    }
+
+    try {
+        // Create JWT for PubSub
+        const token = jwt.sign({
+            exp: Math.floor(Date.now() / 1000) + 10, // 10s expiration
+            user_id: 'owner', // Role
+            role: 'external',
+            channel_id: channelId,
+            pubsub_perms: {
+                send: ['broadcast']
+            }
+        }, EXTENSION_SECRET, { algorithm: 'HS256' });
+
+        const response = await fetch('https://api.twitch.tv/helix/extensions/pubsub', {
+            method: 'POST',
+            headers: {
+                'Client-Id': clientId,
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target: ['broadcast'],
+                broadcaster_id: channelId,
+                is_global_broadcast: false,
+                message: JSON.stringify(payload) 
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error('PubSub API Error:', response.status, errText);
+        } else {
+            // console.log('PubSub Broadcast Sent!');
+        }
+
+    } catch (e) {
+        console.error('Broadcast Exception:', e);
+    }
+}
 
 // API Endpoints
 app.get('/', (req, res) => {

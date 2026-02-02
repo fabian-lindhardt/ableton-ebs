@@ -21,7 +21,7 @@
 
         <!-- Add New Trigger Form -->
         <div class="add-form">
-            <h3>Add New Trigger</h3>
+            <h3>Add / Edit Trigger</h3>
 
             <div class="form-group">
                 <label>Label</label>
@@ -32,8 +32,12 @@
                 <div class="form-group">
                     <label>Type</label>
                     <select id="new-type">
-                        <option value="noteon">Note On</option>
-                        <option value="cc">CC (Control Change)</option>
+                        <option value="noteon">Note On (Pad)</option>
+                        <option value="cc">CC (Button)</option>
+                        <option value="toggle">CC Toggle (Switch)</option>
+                        <option value="fader">CC Fader (Slider)</option>
+                        <option value="knob">CC Knob (Rotary)</option>
+                        <option value="xypad">CC XY Pad</option>
                         <option value="start">Transport Play</option>
                         <option value="stop">Transport Stop</option>
                     </select>
@@ -44,23 +48,53 @@
                 </div>
             </div>
 
+            <!-- Dynamic Fields Container -->
+            <div id="dynamic-fields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label id="lbl-val">Val / Note #</label>
+                        <input type="number" id="new-value" placeholder="Note (0-127)" min="0" max="127">
+                    </div>
+                    <div class="form-group">
+                        <label id="lbl-vel">Vel / Desired Val</label>
+                        <input type="number" id="new-velocity" placeholder="Velocity (0-127)" min="0" max="127"
+                            value="127">
+                    </div>
+                </div>
+
+                <!-- Extra Row for XY Pad (Hidden by default) -->
+                <div class="form-row" id="row-xy" style="display:none;">
+                    <div class="form-group">
+                        <label>Y-Axis CC #</label>
+                        <input type="number" id="new-y-controller" placeholder="Controller Y (0-127)" min="0" max="127">
+                    </div>
+                </div>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
-                    <label>Val / Note #</label>
-                    <input type="number" id="new-value" placeholder="Note (0-127)" min="0" max="127">
+                    <label>MIDI Channel (1-16)</label>
+                    <input type="number" id="new-channel" value="1" min="1" max="16">
                 </div>
                 <div class="form-group">
-                    <label>Vel / Desired Val</label>
-                    <input type="number" id="new-velocity" placeholder="Velocity (0-127)" min="0" max="127" value="127">
+                    <label>Bit Cost (0 = Free)</label>
+                    <input type="number" id="new-cost" value="0" min="0">
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Bit Cost (0 = Free)</label>
-                <input type="number" id="new-cost" value="0" min="0">
+                <label>Config Version</label>
+                <input type="text" id="config-version" value="0.0.1" placeholder="e.g. 0.0.1">
+                <small style="color: #888; display: block; margin-top: 5px;">Must match Extension Version in Twitch
+                    Console!</small>
             </div>
 
-            <button id="btn-add" class="btn btn-primary">Add Trigger +</button>
+            <input type="hidden" id="edit-index" value="-1">
+            <div style="display:flex; gap:10px;">
+                <button id="btn-add" class="btn btn-primary" style="flex:1;">Add Trigger +</button>
+                <button id="btn-cancel" class="btn btn-secondary"
+                    style="flex:1; display:none; background:#555;">Cancel</button>
+            </div>
         </div>
     </div>
 

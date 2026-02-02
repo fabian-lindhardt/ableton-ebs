@@ -4,6 +4,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -51,8 +52,15 @@ wss.on('connection', (ws) => {
                 const key = `${data.data.channel}-${data.data.controller}`;
                 stateCache.set(key, data.data.value);
 
-                // Broadcast to Twitch PubSub
+                // A: Broadcast to Twitch PubSub (for real extension users)
                 await broadcastToPubSub(data);
+
+                // B: Broadcast to all connected WebSockets (for local standalone testing)
+                wss.clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(data));
+                    }
+                });
             }
 
         } catch (e) {
@@ -117,11 +125,15 @@ async function broadcastToPubSub(payload) {
     }
 }
 
-// API Endpoints
+// Serve Frontend Files (for local testing without Twitch)
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Health Check
 app.get('/', (req, res) => {
-    res.send('Twitch Ableton EBS is running.');
+    res.send('Twitch EBS is running. Go to /panel.html to test frontend.');
 });
 
+// API Endpoints
 // Endpoint to simulate a Bit transaction or Trigger from Frontend
 const jwt = require('jsonwebtoken');
 

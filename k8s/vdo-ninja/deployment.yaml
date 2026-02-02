@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vdo-ninja
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vdo-ninja
+  template:
+    metadata:
+      labels:
+        app: vdo-ninja
+    spec:
+      containers:
+        # 1. VDO.Ninja Web Frontend
+        - name: frontend
+          image: umlat/vdo.ninja:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+        # 2. Signaling (Handshake) Server
+        - name: signaling
+          image: steveseguin/websocket_server:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdo-ninja
+  namespace: default
+spec:
+  selector:
+    app: vdo-ninja
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: signaling
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP

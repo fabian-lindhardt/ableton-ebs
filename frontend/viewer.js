@@ -1,12 +1,81 @@
 // Twitch Extension Helper
-const twitch = window.Twitch.ext;
-let authToken = 'dev-token'; // Default for local testing without Twitch Rig
-
-// Store Triggers
-// Store Triggers and States
+const MAX_TRIGGERS = 12;
 let activeTriggers = [];
-let triggerStates = {}; // Map ID -> boolean/value
+let authToken = '';
 
+// MOCK CONFIGURATION for Localhost
+const MOCK_CONFIG = {
+    triggers: [
+        { id: 1, type: 'fader', label: 'Volume', channel: 1, controller: 1, style: 'cyan' },
+        { id: 2, type: 'knob', label: 'Filter', channel: 1, controller: 2, style: 'pink' },
+        { id: 3, type: 'button', label: 'Kick', channel: 1, note: 36, style: 'red' },
+        { id: 4, type: 'xy', label: 'Chaos', channel: 1, controllerX: 10, controllerY: 11 }
+    ]
+};
+
+const twitch = window.Twitch ? window.Twitch.ext : null;
+// Default for local testing without Twitch Rig
+if (!twitch || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    authToken = 'dev-token';
+}
+
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Override triggers if no config found
+    setTimeout(() => {
+        if (activeTriggers.length === 0) {
+            console.log("Localhost: Loading MOCK Configuration for testing.");
+            activeTriggers = MOCK_CONFIG.triggers;
+            renderButtons();
+            updateStatus('Dev Mode: Mock Config Loaded');
+        }
+        // Force initialization on localhost if onAuthorized won't fire
+        if (authToken === 'dev-token') {
+            fetchState();
+            checkSession();
+        }
+    }, 1500);
+
+    // --- LOCAL WEBSOCKET SYNC FALLBACK ---
+    const localWs = new WebSocket('ws://localhost:8080');
+    localWs.onopen = () => console.log('Connected to local EBS WebSocket for Sync.');
+    localWs.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'sync') {
+                console.log('Received Local Sync:', data.data);
+                handleSync(data.data);
+            }
+        } catch (e) {
+            console.error('Local WS Parse Error:', e);
+        }
+    };
+    localWs.onclose = () => console.warn('Local EBS WebSocket closed.');
+
+    // Show Dev Settings
+    setTimeout(() => {
+        const devSet = document.getElementById('dev-settings');
+        if (devSet) devSet.style.display = 'block';
+        const devInp = document.getElementById('dev-vdo-id');
+        if (devInp) {
+            devInp.value = localStorage.getItem('dev_vdo_id') || 'ZtDACFm';
+            devInp.addEventListener('change', (e) => {
+                let val = e.target.value.trim();
+                // Try to extract ID if it's a URL
+                if (val.includes('vdo.ninja')) {
+                    try {
+                        const url = new URL(val);
+                        val = url.searchParams.get('view') || url.searchParams.get('push') || val;
+                    } catch (e) { }
+                }
+                localStorage.setItem('dev_vdo_id', val);
+                updateStatus('VDO ID Updated');
+            });
+        }
+    }, 1000);
+}
+
+// Store Triggers and States
+let triggerStates = {}; // Map ID -> boolean/value
 
 // Add Static Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,85 +84,83 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Listen for Config Changes (Load Dynamic Buttons)
-twitch.configuration.onChanged(() => {
-    console.log('Config Changed Event');
-    if (twitch.configuration.broadcaster) {
+if (twitch) {
+    twitch.configuration.onChanged(() => {
+        console.log('Config Changed Event');
+        if (twitch.configuration.broadcaster) {
+            try {
+                const config = JSON.parse(twitch.configuration.broadcaster.content);
+                if (config) {
+                    if (config.triggers) {
+                        console.log('Loading Triggers:', config.triggers);
+                        activeTriggers = config.triggers;
+                        renderButtons();
+                    }
+                    if (config.globalVdoId) {
+                        console.log('Production VDO ID loaded:', config.globalVdoId);
+                        currentVdoId = config.globalVdoId;
+                    }
+                }
+            } catch (e) {
+                console.error('Config/Render Error:', e);
+                document.getElementById('dynamic-triggers').innerHTML = `<div class="error">Error loading: ${e.message}</div>`;
+            }
+        } else {
+            console.log('No configuration found');
+            document.getElementById('dynamic-triggers').innerHTML = '<div class="empty-state">No triggers configured yet. Go to Extension Config!</div>';
+        }
+    });
+
+    // Listen for PubSub Broadcasts (Bi-directional Sync)
+    twitch.listen('broadcast', (target, contentType, message) => {
         try {
-            const config = JSON.parse(twitch.configuration.broadcaster.content);
-            if (config && config.triggers) {
-                console.log('Loading Triggers:', config.triggers);
-                activeTriggers = config.triggers;
-                renderButtons();
+            const data = JSON.parse(message);
+            console.log('Received Broadcast:', data);
+
+            if (data.type === 'sync') {
+                handleSync(data.data);
             }
         } catch (e) {
-            console.error('Config/Render Error:', e);
-            document.getElementById('dynamic-triggers').innerHTML = `<div class="error">Error loading: ${e.message}</div>`;
+            console.error('PubSub Error:', e);
         }
-    } else {
-        console.log('No configuration found');
-        document.getElementById('dynamic-triggers').innerHTML = '<div class="empty-state">No triggers configured yet. Go to Extension Config!</div>';
-    }
-});
-
-// Listen for PubSub Broadcasts (Bi-directional Sync)
-twitch.listen('broadcast', (target, contentType, message) => {
-    try {
-        // message is a JSON string
-        const data = JSON.parse(message);
-        console.log('Received Broadcast:', data);
-
-        if (data.type === 'sync') {
-            handleSync(data.data);
-        }
-    } catch (e) {
-        console.error('PubSub Error:', e);
-    }
-});
+    });
+}
 
 // Handle External Sync (Ableton -> Bridge -> EBS -> Viewer)
 function handleSync(syncData) {
     const { channel, controller, value } = syncData;
 
     // Find matching triggers
-    activeTriggers.forEach((trigger, index) => {
-        // Check Channel (Default 0 if undefined) & Controller match
+    activeTriggers.forEach((trigger) => {
         const trgCh = trigger.channel || 0;
 
-        // Match specific types that receive sync
         if (trigger.type === 'fader' || trigger.type === 'knob') {
             if (trgCh == channel && trigger.controller == controller) {
-                // Update UI based on type
                 const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
                 if (wrapper) {
                     if (trigger.type === 'fader') {
                         const input = wrapper.querySelector('input');
                         const display = wrapper.querySelector('.fader-value-display');
                         if (input && display) {
-                            // BLOCK if user is dragging this fader!
                             if (wrapper.isDragging) return;
-
                             input.value = value;
                             display.innerText = value;
                             wrapper.style.setProperty('--val-percent', (value / 127) * 100 + '%');
                         }
                     } else if (trigger.type === 'knob') {
-                        // Need access to updateKnobVisual... 
-                        // Refactor: We defined updateKnobVisual inside renderButtons scope.
-                        // Solution: We can re-calculate visual here OR attach the update function to the wrapper DOM element.
                         if (wrapper.updateVisual) {
                             wrapper.updateVisual(value);
                         } else {
-                            // Fallback if we didn't attach it (which we haven't yet, so we need to modify renderButtons to attach it)
                             const rotator = wrapper.querySelector('.knob-rotator');
                             const text = wrapper.querySelector('.knob-value-text');
                             const ring = wrapper.querySelector('.knob-value-ring');
 
                             if (rotator && text && ring) {
-                                // Re-implement visual logic briefly or move it helper
                                 const minAngle = -135; const maxAngle = 135;
                                 const percent = value / 127;
                                 const angle = minAngle + (percent * (maxAngle - minAngle));
                                 rotator.style.transform = `rotate(${angle}deg)`;
+                                rotator.style.transformOrigin = '50px 50px';
                                 text.innerText = value;
                                 const circum = 2 * Math.PI * 40;
                                 const offset = circum - (percent * (circum * 0.75));
@@ -101,9 +168,6 @@ function handleSync(syncData) {
                                 wrapper.style.setProperty('--item-color', `hsl(${100 + (value)}, 100%, 50%)`);
                             }
                         }
-                        // Update internal state if stored?
-                        // In Knob logic we have `currentValue` variable in closure.
-                        // We can attach `updateValue` to wrapper to handle both visual and state.
                     }
                 }
             }
@@ -113,24 +177,19 @@ function handleSync(syncData) {
 
 function renderButtons() {
     const container = document.getElementById('dynamic-triggers');
-    if (!container) return; // Should be in panel.html
+    if (!container) return;
 
-    container.innerHTML = ''; // Clear old buttons
+    container.innerHTML = '';
 
     activeTriggers.forEach((trigger, index) => {
-        // Wrapper for grid cell
         const wrapper = document.createElement('div');
-        wrapper.className = 'pad'; // Base class
-        wrapper.dataset.id = trigger.id; // Helpful for debugging
-
-        // Dynamic Styling (Color handled via CSS variable usually, but for user-config color we might need inline var)
+        wrapper.className = 'pad';
+        wrapper.dataset.id = trigger.id;
         const color = trigger.color || '#9146FF';
         wrapper.style.setProperty('--item-color', color);
 
         if (trigger.type === 'fader') {
-            // --- FADER LOGIC ---
             wrapper.classList.add('type-fader');
-
             wrapper.innerHTML = `
                 <div class="pad-inner">
                     <span class="label">${trigger.label}</span>
@@ -139,55 +198,37 @@ function renderButtons() {
                     ${trigger.cost > 0 ? `<span class="cost">💎 ${trigger.cost}</span>` : ''}
                 </div>
             `;
-
             container.appendChild(wrapper);
 
             const input = wrapper.querySelector('input');
             const valDisplay = wrapper.querySelector('.fader-value-display');
-
-            // Throttled Sender
             const sendThrottled = throttle((val) => {
-                const dynamicTrigger = { ...trigger, value: parseInt(val) };
-                sendSmartTrigger(dynamicTrigger);
-            }, 50); // Faster response for faders
+                sendSmartTrigger({ ...trigger, value: parseInt(val) });
+            }, 50);
 
             input.addEventListener('input', (e) => {
                 const val = e.target.value;
                 sendThrottled(val);
                 valDisplay.innerText = val;
-                // Update visual glow or similar if needed
                 wrapper.style.setProperty('--val-percent', (val / 127) * 100 + '%');
             });
 
-            // Tracking Drag State to prevent Feedback Loop Jank
             wrapper.isDragging = false;
-
             const startDrag = () => { wrapper.isDragging = true; };
             const stopDrag = () => { wrapper.isDragging = false; };
-
             input.addEventListener('mousedown', startDrag);
             input.addEventListener('touchstart', startDrag);
-
             input.addEventListener('mouseup', stopDrag);
             input.addEventListener('touchend', stopDrag);
-            input.addEventListener('change', stopDrag); // Safety
 
-            // Manual Edit
             makeEditable(valDisplay, () => parseInt(input.value), (newVal) => {
                 input.value = newVal;
-                // Trigger input event logic manually
                 sendThrottled(newVal);
                 valDisplay.innerText = newVal;
                 wrapper.style.setProperty('--val-percent', (newVal / 127) * 100 + '%');
             });
-
-            input.addEventListener('click', (e) => e.stopPropagation());
-
         } else if (trigger.type === 'knob') {
-            // --- KNOB LOGIC ---
             wrapper.classList.add('type-knob');
-
-            // SVG for Knob
             wrapper.innerHTML = `
                 <div class="pad-inner">
                     <span class="label">${trigger.label}</span>
@@ -195,7 +236,6 @@ function renderButtons() {
                         <svg viewBox="0 0 100 100" class="knob-svg">
                             <circle cx="50" cy="50" r="40" class="knob-track" />
                             <circle cx="50" cy="50" r="40" class="knob-value-ring" />
-                            <!-- Marker Group for rotation -->
                             <g class="knob-rotator">
                                 <line x1="50" y1="50" x2="50" y2="15" class="knob-marker" />
                             </g>
@@ -205,7 +245,6 @@ function renderButtons() {
                     ${trigger.cost > 0 ? `<span class="cost">💎 ${trigger.cost}</span>` : ''}
                 </div>
             `;
-
             container.appendChild(wrapper);
 
             const knobContainer = wrapper.querySelector('.knob-container');
@@ -213,58 +252,33 @@ function renderButtons() {
             const valueText = wrapper.querySelector('.knob-value-text');
             const valueRing = wrapper.querySelector('.knob-value-ring');
 
-            // Knob State
             let currentValue = 0;
             const minAngle = -135;
             const maxAngle = 135;
-
-            // Drag State to prevent feedback loops
             wrapper.isDragging = false;
 
-            // Helper to update visual
             const updateKnobVisual = (val) => {
-                // Map 0-127 to -135 to 135 deg
                 const percent = val / 127;
                 const angle = minAngle + (percent * (maxAngle - minAngle));
-
                 rotator.style.transform = `rotate(${angle}deg)`;
                 rotator.style.transformOrigin = '50px 50px';
-
                 valueText.innerText = val;
-
-                // Visual Ring Logic
-                const circumference = 2 * Math.PI * 40; // ~251.3
-                const maxArc = circumference * 0.75; // ~188.5
-
-                // Check for Pan Mode (Bipolar)
+                const circumference = 2 * Math.PI * 40;
+                const maxArc = circumference * 0.75;
                 const isPan = (trigger.style === 'pan') || (trigger.label.toLowerCase().includes('pan'));
 
                 if (isPan) {
-                    // Bipolar: Center is 64. Fill outwards.
                     const centerArc = maxArc / 2;
-                    let dashLength = 0;
-                    let startOffset = 0;
-
+                    let dashLength = 0, startOffset = 0;
                     if (val >= 64) {
-                        const relVal = (val - 64) / 63.5;
-                        dashLength = relVal * centerArc;
+                        dashLength = ((val - 64) / 63.5) * centerArc;
                         startOffset = centerArc;
                     } else {
-                        const relVal = (64 - val) / 64;
-                        dashLength = relVal * centerArc;
+                        dashLength = ((64 - val) / 64) * centerArc;
                         startOffset = centerArc - dashLength;
                     }
-
                     valueRing.style.strokeDasharray = `${dashLength} ${circumference}`;
                     valueRing.style.strokeDashoffset = -startOffset;
-
-                    if (val === 64) {
-                        wrapper.style.setProperty('--item-color', '#ffffff');
-                    } else {
-                        const color = trigger.color || '#9146FF';
-                        wrapper.style.setProperty('--item-color', color);
-                    }
-
                 } else {
                     const offset = circumference - (percent * maxArc);
                     valueRing.style.strokeDasharray = `${circumference} ${circumference}`;
@@ -273,248 +287,172 @@ function renderButtons() {
                 }
             };
 
-            // Init
             const initialVal = (trigger.style === 'pan' || trigger.label.toLowerCase().includes('pan')) ? 64 : 0;
             updateKnobVisual(initialVal);
             currentValue = initialVal;
 
-            // Expose for Sync
             wrapper.updateVisual = (val) => {
-                // Ignore updates if user is dragging this knob
                 if (wrapper.isDragging) return;
-
                 currentValue = parseInt(val);
                 updateKnobVisual(currentValue);
             };
 
-            // Throttled Sender
             const sendThrottled = throttle((val) => {
                 sendSmartTrigger({ ...trigger, value: parseInt(val) });
             }, 50);
 
-            // Manual Edit
             makeEditable(valueText, () => currentValue, (newVal) => {
-                currentValue = newVal; // Update internal state
+                currentValue = newVal;
                 updateKnobVisual(newVal);
                 sendThrottled(newVal);
             });
 
-            // Drag Logic
-            let startY = 0;
-            let startValue = 0;
-
+            let startY = 0, startValue = 0;
             const handleStart = (y) => {
                 wrapper.isDragging = true;
-                startY = y;
-                startValue = currentValue;
+                startY = y; startValue = currentValue;
                 document.body.style.cursor = 'ns-resize';
                 knobContainer.classList.add('dragging');
             };
-
             const handleMove = (y) => {
                 if (!wrapper.isDragging) return;
-                const deltaY = startY - y; // Up is positive
-                const sensitivity = 2; // Pixels per step
-
-                let newVal = startValue + Math.floor(deltaY / sensitivity);
-                newVal = Math.max(0, Math.min(127, newVal));
-
+                let newVal = Math.max(0, Math.min(127, startValue + Math.floor((startY - y) / 2)));
                 if (newVal !== currentValue) {
                     currentValue = newVal;
                     updateKnobVisual(currentValue);
                     sendThrottled(currentValue);
                 }
             };
-
             const handleEnd = () => {
                 wrapper.isDragging = false;
                 document.body.style.cursor = '';
                 knobContainer.classList.remove('dragging');
             };
 
-            // Events
             knobContainer.addEventListener('mousedown', (e) => { e.preventDefault(); handleStart(e.clientY); });
             document.addEventListener('mousemove', (e) => handleMove(e.clientY));
             document.addEventListener('mouseup', handleEnd);
-
             knobContainer.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e.touches[0].clientY); });
-            document.addEventListener('touchmove', (e) => { handleMove(e.touches[0].clientY); });
+            document.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientY));
             document.addEventListener('touchend', handleEnd);
 
-
-        } else if (trigger.type === 'xypad') {
-            // --- XY PAD LOGIC ---
+        } else if (trigger.type === 'xy' || trigger.type === 'xypad') {
             wrapper.classList.add('type-xypad');
-
             wrapper.innerHTML = `
-                <div class="xypad-container" id="xy-${index}">
+                <div class="xypad-container" id="xy-${trigger.id}">
                     <div class="xypad-label">${trigger.label}</div>
                     <div class="xypad-grid"></div>   
                     <div class="xypad-handle" style="left: 50%; top: 50%;"></div>
+                    <div class="xypad-learn-btns">
+                        <button class="learn-btn-x" title="Learn X Axis">X</button>
+                        <button class="learn-btn-y" title="Learn Y Axis">Y</button>
+                    </div>
                 </div>
-             `;
-
+            `;
             container.appendChild(wrapper);
-
-            // Attach Events
             const pad = wrapper.querySelector('.xypad-container');
             const handle = wrapper.querySelector('.xypad-handle');
+
+            // Learn Buttons Logic
+            const btnX = wrapper.querySelector('.learn-btn-x');
+            const btnY = wrapper.querySelector('.learn-btn-y');
+
+            btnX.addEventListener('click', (e) => {
+                e.stopPropagation();
+                updateStatus(`Mapping X to CC ${trigger.controller || trigger.controllerX}`);
+                sendSmartTrigger({ ...trigger, controller: trigger.controller || trigger.controllerX, value: 64, type: 'cc' });
+            });
+
+            btnY.addEventListener('click', (e) => {
+                e.stopPropagation();
+                updateStatus(`Mapping Y to CC ${trigger.controllerY}`);
+                sendSmartTrigger({ ...trigger, controller: trigger.controllerY, value: 64, type: 'cc' });
+            });
+
+            const sendXYThrottled = throttle((x, y) => {
+                sendSmartTrigger({ ...trigger, controller: trigger.controller || trigger.controllerX, value: x, type: 'cc' });
+                sendSmartTrigger({ ...trigger, controller: trigger.controllerY, value: y, type: 'cc' });
+            }, 50);
 
             const updateXY = (clientX, clientY) => {
                 const rect = pad.getBoundingClientRect();
                 const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
                 const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-
-                // Update visual
-                handle.style.left = `${x * 100}%`;
-                handle.style.top = `${y * 100}%`;
-
-                // MIDI Values
-                const valX = Math.floor(x * 127);
-                const valY = Math.floor((1 - y) * 127);
-
-                sendXYThrottled(valX, valY);
+                handle.style.left = (x * 100) + '%';
+                handle.style.top = (y * 100) + '%';
+                sendXYThrottled(Math.floor(x * 127), Math.floor((1 - y) * 127));
             };
 
-            const sendXYThrottled = throttle((x, y) => {
-                sendSmartTrigger({ ...trigger, controller: trigger.controller, value: x, type: 'cc' });
-                sendSmartTrigger({ ...trigger, controller: trigger.controllerY, value: y, type: 'cc' });
-            }, 50);
-
             let isDragging = false;
-
             pad.addEventListener('mousedown', (e) => { isDragging = true; updateXY(e.clientX, e.clientY); });
             document.addEventListener('mousemove', (e) => { if (isDragging) updateXY(e.clientX, e.clientY); });
             document.addEventListener('mouseup', () => { isDragging = false; });
-
-            // Touch support
             pad.addEventListener('touchstart', (e) => { isDragging = true; updateXY(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); });
-            pad.addEventListener('touchmove', (e) => { if (isDragging) updateXY(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); });
-            pad.addEventListener('touchend', () => { isDragging = false; });
+            document.addEventListener('touchmove', (e) => { if (isDragging) updateXY(e.touches[0].clientX, e.touches[0].clientY); });
+            document.addEventListener('touchend', () => { isDragging = false; });
 
         } else {
-            // --- BUTTON LOGIC (Normal & Toggle) ---
             wrapper.classList.add('type-btn');
-
-            // Check toggle state
             let isToggled = false;
             if (trigger.type === 'toggle' && triggerStates[trigger.id]) {
-                isToggled = true;
-                wrapper.classList.add('btn-active');
+                isToggled = true; wrapper.classList.add('btn-active');
             }
-
-            wrapper.innerHTML = `
-                <div class="pad-content">
-                    <span class="label">${trigger.label}</span>
-                    ${trigger.cost > 0 ? `<span class="cost">💎 ${trigger.cost}</span>` : ''}
-                </div>
-                <div class="pad-glow"></div>
-            `;
-
+            wrapper.innerHTML = `<div class="pad-content"><span class="label">${trigger.label}</span>${trigger.cost > 0 ? `<span class="cost">💎 ${trigger.cost}</span>` : ''}</div><div class="pad-glow"></div>`;
             wrapper.addEventListener('click', () => {
                 if (trigger.type === 'toggle') {
-                    isToggled = !isToggled;
-                    triggerStates[trigger.id] = isToggled;
-
-                    if (isToggled) {
-                        wrapper.classList.add('btn-active');
-                        sendSmartTrigger({ ...trigger, value: trigger.value, type: 'cc' });
-                    } else {
-                        wrapper.classList.remove('btn-active');
-                        sendSmartTrigger({ ...trigger, value: 0, type: 'cc' });
-                    }
+                    isToggled = !isToggled; triggerStates[trigger.id] = isToggled;
+                    if (isToggled) { wrapper.classList.add('btn-active'); sendSmartTrigger({ ...trigger, value: 127, type: 'cc' }); }
+                    else { wrapper.classList.remove('btn-active'); sendSmartTrigger({ ...trigger, value: 0, type: 'cc' }); }
                 } else {
-                    // Flash Animation via CSS class
-                    wrapper.classList.add('btn-flash');
-                    setTimeout(() => wrapper.classList.remove('btn-flash'), 200);
+                    wrapper.classList.add('btn-flash'); setTimeout(() => wrapper.classList.remove('btn-flash'), 200);
                     sendSmartTrigger(trigger);
                 }
             });
-
             container.appendChild(wrapper);
         }
     });
 }
 
-// Helper: Throttle
 function throttle(func, limit) {
-    let lastFunc;
-    let lastRan;
+    let lastFunc, lastRan;
     return function () {
-        const context = this;
-        const args = arguments;
-        if (!lastRan) {
-            func.apply(context, args);
-            lastRan = Date.now();
-        } else {
+        const context = this, args = arguments;
+        if (!lastRan) { func.apply(context, args); lastRan = Date.now(); }
+        else {
             clearTimeout(lastFunc);
-            lastFunc = setTimeout(function () {
-                if ((Date.now() - lastRan) >= limit) {
-                    func.apply(context, args);
-                    lastRan = Date.now();
-                }
+            lastFunc = setTimeout(() => {
+                if ((Date.now() - lastRan) >= limit) { func.apply(context, args); lastRan = Date.now(); }
             }, limit - (Date.now() - lastRan));
         }
     }
 }
 
-
-// Keep the localhost URL for now, but in production this should be relative or configured
-const EBS_API = 'https://abletonlivechat.flairtec.de/api/trigger';
-
+const EBS_API = 'http://localhost:8080/api/trigger';
 async function sendCommand(type) {
     updateStatus('Transport: ' + type);
-    const payload = {
-        action: type,
-        midi: { action: type }
-    };
-    await sendEBS(payload);
+    await sendEBS({ action: type, midi: { action: type } });
 }
 
 async function sendSmartTrigger(trigger) {
-    // Only show status updates for non-fader triggers to avoid log spam
-    if (trigger.type !== 'fader') {
-        updateStatus(`Sending: ${trigger.label}...`);
-    }
-
-    // Construct specific MIDI payload based on type
-    // This cleaning ensures logs are readable and correct
-    let midiData = {
-        action: trigger.type,
-        channel: trigger.channel || 0, // Use Configured Channel
-        value: trigger.value
-    };
-
+    if (trigger.type !== 'fader') updateStatus(`Sending: ${trigger.label}...`);
+    let midiData = { action: trigger.type, channel: trigger.channel || 1, value: trigger.value };
     if (trigger.type === 'noteon' || trigger.type === 'noteoff') {
-        midiData.note = trigger.value;       // Note Number
-        midiData.velocity = trigger.velocity;
-    } else if (trigger.type === 'cc' || trigger.type === 'fader' || trigger.type === 'knob') {
-        midiData.controller = trigger.controller; // CC Number
-        midiData.value = trigger.value;          // CC Value
-        // 'note' is undefined here, removing ambiguity
+        midiData.note = trigger.note || trigger.value;
+        midiData.velocity = trigger.velocity || 100;
+    } else {
+        midiData.controller = trigger.controller;
     }
-
-    const payload = {
-        action: 'trigger',
-        midi: midiData
-    };
-
-    await sendEBS(payload);
+    await sendEBS({ action: 'trigger', midi: midiData });
 }
 
 async function sendEBS(payload) {
     try {
         const res = await fetch(EBS_API, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
             body: JSON.stringify(payload)
         });
-
         const data = await res.json();
-        // Silent success for faders
         if (data.success) {
             if (payload.midi.action !== 'fader') {
                 updateStatus('Sent!');
@@ -523,7 +461,6 @@ async function sendEBS(payload) {
         } else {
             updateStatus('Error: ' + data.message);
         }
-
     } catch (err) {
         console.error(err);
         updateStatus('Failed to connect to EBS');
@@ -535,89 +472,168 @@ function updateStatus(msg) {
     if (el) el.innerText = msg;
 }
 
-// Listen for the onAuthorized event to get the JWT
 if (twitch) {
     twitch.onAuthorized((auth) => {
-        console.log('Twitch Authorized:', auth);
         authToken = auth.token;
         updateStatus('Connected to Twitch!');
-
-        // Fetch Initial State from EBS
         fetchState();
+        checkSession();
     });
 }
 
 async function fetchState() {
     try {
-        // EBS_API is .../api/trigger. We need .../api/state
-        const stateUrl = EBS_API.replace('/trigger', '/state');
-        const res = await fetch(stateUrl, {
+        const res = await fetch(EBS_API.replace('/trigger', '/state'), {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (res.ok) {
             const state = await res.json();
-            console.log('Initial State:', state);
             applyState(state);
         }
-    } catch (e) {
-        console.error('Failed to fetch state:', e);
-    }
+    } catch (e) { console.error('Failed to fetch state:', e); }
 }
 
 function applyState(state) {
-    // state is { "ch-cc": val, ... }
     Object.keys(state).forEach(key => {
-        const [chStr, ccStr] = key.split('-');
-        const ch = parseInt(chStr);
-        const cc = parseInt(ccStr);
-        const val = state[key];
-
-        // Call handleSync for each cached item
-        handleSync({ channel: ch, controller: cc, value: val });
+        const [ch, cc] = key.split('-').map(Number);
+        handleSync({ channel: ch, controller: cc, value: state[key] });
     });
 }
 
-// Helper: Make Element Text Editable
-function makeEditable(displayElement, getValue, onCommit) {
-    displayElement.style.cursor = 'text';
-    displayElement.title = "Click to type value";
+let vipExpiresAt = 0, timerInterval = null;
+const AUDIO_STREAM_URL = "https://vdo.ninja/?view=ZtDACFm&autoplay=1&proaudio=1&stereo=1&audiobitrate=256";
 
-    displayElement.addEventListener('click', (e) => {
-        e.stopPropagation(); // Don't trigger pad click
-        const initialVal = getValue();
-
-        displayElement.style.display = 'none';
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.min = 0;
-        input.max = 127;
-        input.value = initialVal;
-        input.className = 'val-edit-input';
-
-        // Insert input where display was
-        displayElement.parentNode.insertBefore(input, displayElement);
-        input.focus();
-        input.select();
-
-        const finish = () => {
-            let val = parseInt(input.value);
-            if (isNaN(val)) val = initialVal;
-            val = Math.max(0, Math.min(127, val));
-
-            onCommit(val); // Callback to update parent logic
-
-            input.remove();
-            displayElement.style.display = ''; // Show display again
-        };
-
-        input.addEventListener('blur', finish);
-        input.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') {
-                input.blur(); // Triggers finish
+function checkSession() {
+    console.log("Checking session status...");
+    fetch(EBS_API.replace('/trigger', '/session'), {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    })
+        .then(res => res.json())
+        .then(data => {
+            console.log("Session Check Result:", data);
+            if (data.success && data.session && data.session.isActive) {
+                console.log("Active session found, activating VIP.");
+                activateVip(data.session.expiresAt);
+            } else {
+                console.log("No active session, locking UI.");
+                lockInterface();
             }
-            ev.stopPropagation(); // Stop Enter from doing other things
+        })
+        .catch(err => {
+            console.warn('EBS unreachable or error:', err);
+            lockInterface();
         });
-        input.addEventListener('click', (ev) => ev.stopPropagation());
-        input.addEventListener('mousedown', (ev) => ev.stopPropagation()); // Prevent drag starts
+}
+
+function lockInterface() {
+    console.log("UI locked.");
+    document.getElementById('app').classList.add('is-locked');
+    document.getElementById('app').classList.remove('is-vip');
+    const container = document.getElementById('audio-container');
+    if (container) container.innerHTML = '';
+    if (timerInterval) clearInterval(timerInterval);
+}
+
+function activateVip(expiresAt) {
+    console.log("VIP activated until:", new Date(expiresAt).toLocaleTimeString());
+    vipExpiresAt = expiresAt;
+    document.getElementById('app').classList.remove('is-locked');
+    document.getElementById('app').classList.add('is-vip');
+    if (timerInterval) clearInterval(timerInterval);
+    updateTimerDisplay();
+    timerInterval = setInterval(updateTimerDisplay, 1000);
+    const container = document.getElementById('audio-container');
+    if (container && !container.innerHTML) {
+        // Get VDO ID following priority: 
+        // 1. Production Config (Broadcaster)
+        // 2. Local Dev Input (localStorage)
+        // 3. Fallback Default
+        let vdoId = currentVdoId || "ZtDACFm";
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            vdoId = localStorage.getItem('dev_vdo_id') || vdoId;
+        }
+
+        const dynamicUrl = `https://vdo.ninja/?view=${vdoId}&autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart`;
+        console.log("Injecting audio iframe with URL:", dynamicUrl);
+        container.innerHTML = `<iframe src="${dynamicUrl}" allow="autoplay; encrypted-media"></iframe>`;
+
+        // Add a manual link just in case autoplay fails
+        const fallback = document.createElement('div');
+        fallback.style.cssText = "font-size: 10px; color: #666; margin-top: 5px; cursor: pointer;";
+        fallback.innerText = "Audio not playing? Click here to refresh stream.";
+        fallback.onclick = () => {
+            console.log("Manual stream refresh triggered.");
+            container.innerHTML = `<iframe src="${dynamicUrl}&reload=${Date.now()}" allow="autoplay; encrypted-media"></iframe>`;
+        };
+        container.appendChild(fallback);
+    }
+}
+
+function updateTimerDisplay() {
+    const remaining = Math.max(0, vipExpiresAt - Date.now());
+    if (remaining === 0) { lockInterface(); return; }
+    const s = Math.floor((remaining / 1000) % 60);
+    const m = Math.floor(remaining / 60000);
+    document.getElementById('vip-timer').innerText = `VIP: ${m}:${s.toString().padStart(2, '0')}`;
+}
+
+const unlockBtn = document.getElementById('btn-unlock');
+if (unlockBtn) {
+    console.log("Unlock button found, attaching listener.");
+    unlockBtn.addEventListener('click', () => {
+        console.log("Unlock button CLICKED!");
+        // Force local transaction if on localhost
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        if (twitch && twitch.bits && !isLocal) {
+            console.log("Using Twitch Bits API...");
+            twitch.bits.useBits('vip-session-5min');
+        } else {
+            console.log("Using Local Transaction Simulation (EBS)...");
+            fetch(EBS_API.replace('/trigger', '/transaction'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                body: JSON.stringify({ cost: 100, sku: 'dev-test' })
+            })
+                .then(res => {
+                    console.log("Transaction response status:", res.status);
+                    return res.json();
+                })
+                .then(data => {
+                    console.log("Transaction data received:", data);
+                    if (data.success) {
+                        console.log("Activating VIP from transaction!");
+                        activateVip(data.session.expiresAt);
+                    } else {
+                        updateStatus('Transaction Failed: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error("Transaction Fetch Error:", err);
+                    updateStatus('Connection Error');
+                });
+        }
+    });
+} else {
+    console.warn("Unlock button NOT found in DOM!");
+}
+
+function makeEditable(el, getVal, onCommit) {
+    el.style.cursor = 'text';
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const init = getVal();
+        el.style.display = 'none';
+        const input = document.createElement('input');
+        input.type = 'number'; input.value = init; input.className = 'val-edit-input';
+        el.parentNode.insertBefore(input, el);
+        input.focus(); input.select();
+        const done = () => {
+            let v = Math.max(0, Math.min(127, parseInt(input.value) || init));
+            onCommit(v);
+            input.remove(); el.style.display = '';
+        };
+        input.addEventListener('blur', done);
+        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); ev.stopPropagation(); });
     });
 }

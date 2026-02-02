@@ -1,8 +1,9 @@
+require('dotenv').config();
 const JZZ = require('jzz');
 const WebSocket = require('ws');
 
 // Configuration
-const EBS_URL = 'wss://abletonlivechat.flairtec.de';
+const EBS_URL = process.env.EBS_URL || 'wss://abletonlivechat.flairtec.de';
 const MIDI_PORT_SEARCH = 'loopMIDI Port';
 
 console.log('--- Twitch Ableton Local Bridge (JZZ) ---');

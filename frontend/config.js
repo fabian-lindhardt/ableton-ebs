@@ -28,8 +28,13 @@ twitch.configuration.onChanged(() => {
             }
 
             const config = JSON.parse(twitch.configuration.broadcaster.content);
-            if (config && config.triggers) {
-                currentConfig = config;
+            if (config) {
+                if (config.triggers) currentConfig.triggers = config.triggers;
+                if (config.globalVdoId) {
+                    currentConfig.globalVdoId = config.globalVdoId;
+                    const globalInput = document.getElementById('global-vdo-id');
+                    if (globalInput) globalInput.value = config.globalVdoId;
+                }
                 renderTriggers();
             }
         } catch (e) {
@@ -237,6 +242,21 @@ function saveConfig() {
 // UI Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-add').addEventListener('click', addTrigger);
+
+    document.getElementById('btn-save-global')?.addEventListener('click', () => {
+        const val = document.getElementById('global-vdo-id').value.trim();
+        // Extract ID if it's a URL
+        let finalId = val;
+        if (val.includes('vdo.ninja')) {
+            try {
+                const url = new URL(val);
+                finalId = url.searchParams.get('view') || url.searchParams.get('push') || val;
+            } catch (e) { }
+        }
+        currentConfig.globalVdoId = finalId;
+        saveConfig();
+        alert('Global Settings Saved!');
+    });
 
     const cancelBtn = document.getElementById('btn-cancel');
     if (cancelBtn) cancelBtn.addEventListener('click', cancelEdit);

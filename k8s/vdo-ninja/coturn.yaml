@@ -10,7 +10,7 @@ data:
     fingerprint
     lt-cred-mech
     user=vdo:ninja-secret-password  # CHANGE THIS!
-    realm=vdo.example.com           # CHANGE THIS!
+    realm=vdo.flairtec.de
     total-quota=100
     stale-nonce=600
     no-stdout-log

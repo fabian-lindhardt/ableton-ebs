@@ -10,10 +10,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - vdo.example.com  # REPLACE with your domain
+        - vdo.flairtec.de
       secretName: vdo-ninja-tls
   rules:
-    - host: vdo.example.com  # REPLACE with your domain
+    - host: vdo.flairtec.de
       http:
         paths:
           # Frontend

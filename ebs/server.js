@@ -164,10 +164,39 @@ app.get('/api/state', verifyTwitchToken, (req, res) => {
     res.json(stateObj);
 });
 
-// Endpoint to simulate a Bit transaction or Trigger from Frontend
-app.post('/api/trigger', verifyTwitchToken, (req, res) => {
-    const { action, midi } = req.body;
+const { addSessionTime, getSession, requireVip } = require('./transactions');
 
+// ... (Existing Routes) ...
+
+// Transaction Handler (Frontend sends this after Bits are used)
+app.post('/api/transaction', verifyTwitchToken, (req, res) => {
+    // In a real app, verify the JWT from the Twitch Transaction Receipt!
+    // For MVP, we trust the client sends the correct SKU/Bits, but we verify the User via Auth Token.
+    const { cost, sku } = req.body;
+    const userId = req.user.user_id || req.user.opaque_user_id;
+
+    if (!cost || cost <= 0) {
+        return res.status(400).json({ success: false, message: 'Invalid Page' });
+    }
+
+    const session = addSessionTime(userId, parseInt(cost));
+    console.log(`[VIP] Added ${cost} bits for user ${userId}. Expires in ${Math.round(session.totalRemainingMs / 1000)}s`);
+
+    res.json({ success: true, session });
+});
+
+// Session Status Check
+app.get('/api/session', verifyTwitchToken, (req, res) => {
+    const userId = req.user.user_id || req.user.opaque_user_id;
+    const session = getSession(userId);
+    res.json({ success: true, session });
+});
+
+// Protected Endpoint: Trigger
+// NOW PROTECTED by requireVip! 
+app.post('/api/trigger', verifyTwitchToken, requireVip, (req, res) => {
+    const { action, midi } = req.body;
+    // ... (rest of logic) ...
     console.log(`Received trigger from ${req.user ? req.user.role : 'dev'}: ${action}`, midi);
 
     // Update Cache from Frontend Actions too (Optimistic update)

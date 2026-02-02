@@ -218,6 +218,9 @@ function renderButtons() {
             const minAngle = -135;
             const maxAngle = 135;
 
+            // Drag State to prevent feedback loops
+            wrapper.isDragging = false;
+
             // Helper to update visual
             const updateKnobVisual = (val) => {
                 // Map 0-127 to -135 to 135 deg
@@ -238,40 +241,31 @@ function renderButtons() {
 
                 if (isPan) {
                     // Bipolar: Center is 64. Fill outwards.
-                    // Center of Arc is at 50% of maxArc (~94.25px from start)
                     const centerArc = maxArc / 2;
                     let dashLength = 0;
                     let startOffset = 0;
 
                     if (val >= 64) {
-                        // Right Side: Center -> Right
-                        // Length = (Val - 64) scaled
-                        const relVal = (val - 64) / 63.5; // 0 to 1
+                        const relVal = (val - 64) / 63.5;
                         dashLength = relVal * centerArc;
-                        startOffset = centerArc; // Start drawing at center
+                        startOffset = centerArc;
                     } else {
-                        // Left Side: Left <- Center
-                        // Length = (64 - Val) scaled
-                        const relVal = (64 - val) / 64; // 0 to 1
+                        const relVal = (64 - val) / 64;
                         dashLength = relVal * centerArc;
-                        startOffset = centerArc - dashLength; // Start drawing before center
+                        startOffset = centerArc - dashLength;
                     }
 
-                    // For SVG, negative offset moves start point forward
                     valueRing.style.strokeDasharray = `${dashLength} ${circumference}`;
                     valueRing.style.strokeDashoffset = -startOffset;
 
-                    // Optional: Color logic for center
                     if (val === 64) {
-                        wrapper.style.setProperty('--item-color', '#ffffff'); // White at center
+                        wrapper.style.setProperty('--item-color', '#ffffff');
                     } else {
-                        // Default logic or static
                         const color = trigger.color || '#9146FF';
                         wrapper.style.setProperty('--item-color', color);
                     }
 
                 } else {
-                    // Standard Unipolar (0 -> Val)
                     const offset = circumference - (percent * maxArc);
                     valueRing.style.strokeDasharray = `${circumference} ${circumference}`;
                     valueRing.style.strokeDashoffset = offset;
@@ -286,6 +280,9 @@ function renderButtons() {
 
             // Expose for Sync
             wrapper.updateVisual = (val) => {
+                // Ignore updates if user is dragging this knob
+                if (wrapper.isDragging) return;
+
                 currentValue = parseInt(val);
                 updateKnobVisual(currentValue);
             };
@@ -297,25 +294,25 @@ function renderButtons() {
 
             // Manual Edit
             makeEditable(valueText, () => currentValue, (newVal) => {
-                // Use the exposed updater
-                wrapper.updateVisual(newVal);
+                currentValue = newVal; // Update internal state
+                updateKnobVisual(newVal);
                 sendThrottled(newVal);
             });
 
             // Drag Logic
-            let isDragging = false;
             let startY = 0;
             let startValue = 0;
 
             const handleStart = (y) => {
-                isDragging = true;
+                wrapper.isDragging = true;
                 startY = y;
                 startValue = currentValue;
+                document.body.style.cursor = 'ns-resize';
                 knobContainer.classList.add('dragging');
             };
 
             const handleMove = (y) => {
-                if (!isDragging) return;
+                if (!wrapper.isDragging) return;
                 const deltaY = startY - y; // Up is positive
                 const sensitivity = 2; // Pixels per step
 
@@ -330,15 +327,17 @@ function renderButtons() {
             };
 
             const handleEnd = () => {
-                isDragging = false;
+                wrapper.isDragging = false;
+                document.body.style.cursor = '';
                 knobContainer.classList.remove('dragging');
             };
 
-            knobContainer.addEventListener('mousedown', (e) => handleStart(e.clientY));
+            // Events
+            knobContainer.addEventListener('mousedown', (e) => { e.preventDefault(); handleStart(e.clientY); });
             document.addEventListener('mousemove', (e) => handleMove(e.clientY));
             document.addEventListener('mouseup', handleEnd);
 
-            knobContainer.addEventListener('touchstart', (e) => { handleStart(e.touches[0].clientY); e.preventDefault(); });
+            knobContainer.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e.touches[0].clientY); });
             document.addEventListener('touchmove', (e) => { handleMove(e.touches[0].clientY); });
             document.addEventListener('touchend', handleEnd);
 

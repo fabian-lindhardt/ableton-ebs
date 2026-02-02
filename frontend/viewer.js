@@ -502,7 +502,6 @@ function applyState(state) {
 }
 
 let vipExpiresAt = 0, timerInterval = null;
-const AUDIO_STREAM_URL = "https://vdo.ninja/?view=ZtDACFm&autoplay=1&proaudio=1&stereo=1&audiobitrate=256";
 
 function checkSession() {
     console.log("Checking session status...");
@@ -543,70 +542,71 @@ function activateVip(expiresAt) {
     if (timerInterval) clearInterval(timerInterval);
     updateTimerDisplay();
     timerInterval = setInterval(updateTimerDisplay, 1000);
+
     const container = document.getElementById('audio-container');
-    if (container && !container.innerHTML) {
-        // 1. Production Config (Broadcaster/Global)
-        // 2. Local Dev Input (localStorage)
-        // 3. Fallback Default
-        let vdoId = currentVdoId || "ZtDACFm";
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            vdoId = localStorage.getItem('dev_vdo_id') || vdoId;
-        }
+    if (container) container.innerHTML = ''; // Reset container
 
-        let baseUrl = "https://vdo.ninja/";
-        let params = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart`;
-
-        // If it's a domain like vdo.flairtec.de
-        if (vdoId.includes('.') && !vdoId.includes('/')) {
-            baseUrl = `https://${vdoId}/`;
-            vdoId = "Ge4NiV6"; // Fallback ID if just domain is provided? 
-            // Better: if it's a domain, maybe it already HAS the ID if it's a full URL
-        }
-
-        // Improved Robust Logic:
-        let finalUrl = "";
-        const defaultId = "ZtDACFm"; // Your specific default ID
-
-        if (vdoId.startsWith('http')) {
-            // Full URL provided
-            finalUrl = vdoId;
-        } else if (vdoId.includes('.')) {
-            // Domain provided (e.g. vdo.flairtec.de)
-            // We assume it's just the host, so we use a view ID
-            // If the user wants a specific ID on their domain, they should use a full URL in config
-            finalUrl = `https://${vdoId}/?view=${defaultId}`;
-        } else {
-            // Just an ID provided
-            // Use self-hosted domain if available, otherwise vdo.ninja
-            const domain = (currentVdoId && currentVdoId.includes('.')) ? currentVdoId : "vdo.ninja";
-            finalUrl = `https://${domain}/?view=${vdoId}`;
-        }
-
-        // Ensure all parameters are present
-        if (!finalUrl.includes('?')) finalUrl += "?";
-        else if (!finalUrl.endsWith('?') && !finalUrl.endsWith('&')) finalUrl += "&";
-
-        const urlParams = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart&cleanoutput`;
-        finalUrl += urlParams;
-
-        // Add WSS if it's our domain
-        if (finalUrl.includes('flairtec.de')) {
-            finalUrl += `&wss=vdo.flairtec.de`;
-        }
-
-        console.log("Injecting audio iframe with URL:", finalUrl);
-        container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media; microphone; fullscreen"></iframe>`;
-
-        // Add a manual link just in case autoplay fails
-        const fallback = document.createElement('div');
-        fallback.style.cssText = "font-size: 10px; color: #666; margin-top: 5px; cursor: pointer; text-align: center;";
-        fallback.innerText = "Audio not playing? Click here to refresh stream.";
-        fallback.onclick = () => {
-            console.log("Manual stream refresh triggered.");
-            container.innerHTML = `<iframe src="${finalUrl}&reload=${Date.now()}" allow="autoplay; encrypted-media"></iframe>`;
+    // Prepare the Join Button
+    const joinBtn = document.getElementById('btn-join-audio');
+    if (joinBtn) {
+        joinBtn.style.display = 'block'; // Ensure visible
+        joinBtn.onclick = () => {
+            console.log("Join Audio clicked! Performing synchronous injection...");
+            startAudioStream();
+            joinBtn.style.display = 'none'; // Hide after joining
         };
-        container.appendChild(fallback);
     }
+}
+
+function startAudioStream() {
+    const container = document.getElementById('audio-container');
+    if (!container) return;
+
+    // 1. Production Config (Broadcaster/Global)
+    // 2. Local Dev Input (localStorage)
+    // 3. Fallback Default
+    let vdoId = currentVdoId || "ZtDACFm";
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        vdoId = localStorage.getItem('dev_vdo_id') || vdoId;
+    }
+
+    // Improved Robust Logic:
+    let finalUrl = "";
+    const defaultId = "ZtDACFm";
+
+    if (vdoId.startsWith('http')) {
+        finalUrl = vdoId;
+    } else if (vdoId.includes('.')) {
+        finalUrl = `https://${vdoId}/?view=${defaultId}`;
+    } else {
+        const domain = (currentVdoId && currentVdoId.includes('.')) ? currentVdoId : "vdo.ninja";
+        finalUrl = `https://${domain}/?view=${vdoId}`;
+    }
+
+    // Ensure parameters
+    if (!finalUrl.includes('?')) finalUrl += "?";
+    else if (!finalUrl.endsWith('?') && !finalUrl.endsWith('&')) finalUrl += "&";
+
+    const urlParams = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart&cleanoutput`;
+    finalUrl += urlParams;
+
+    if (finalUrl.includes('flairtec.de')) {
+        finalUrl += `&wss=vdo.flairtec.de/socket.io`;
+    }
+
+    console.log("Injecting audio iframe with URL:", finalUrl);
+    container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media; microphone; fullscreen"></iframe>`;
+
+    // Add a manual link just in case autoplay fails
+    const fallback = document.createElement('div');
+    fallback.style.cssText = "font-size: 10px; color: #666; margin-top: 5px; cursor: pointer; text-align: center;";
+    fallback.innerText = "Audio not playing? Click here to refresh stream.";
+    fallback.onclick = (e) => {
+        e.stopPropagation();
+        console.log("Manual stream refresh triggered.");
+        container.innerHTML = `<iframe src="${finalUrl}&reload=${Date.now()}" allow="autoplay; encrypted-media"></iframe>`;
+    };
+    container.appendChild(fallback);
 }
 
 function updateTimerDisplay() {

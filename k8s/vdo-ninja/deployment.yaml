@@ -61,32 +61,15 @@ spec:
         - name: signaling
           image: node:18-alpine
           workingDir: /usr/src/app
-          # Overwriting server.js with a clean non-SSL version
+          # FIX: Replacing the SSL server creation block with plain HTTP.
+          # We search for the https require and createServer block and replace it.
           command: 
             - "sh"
             - "-c"
             - |
               npm install && \
-              cat <<EOF > server.js
-              "use strict";
-              const http = require("http");
-              const express = require("express");
-              const app = express();
-              const WebSocket = require("ws");
-              const server = http.createServer(app);
-              const websocketServer = new WebSocket.Server({ server });
-              websocketServer.on("connection", (webSocketClient) => {
-                  webSocketClient.on("message", (message) => {
-                      websocketServer.clients.forEach(client => {
-                          if (webSocketClient != client && client.readyState === WebSocket.OPEN) {
-                              client.send(message.toString());
-                          }
-                      });
-                  });
-              });
-              const port = process.env.PORT || 3000;
-              server.listen(port, () => { console.log("Server started on port " + port); });
-              EOF
+              sed -i 's/const https = require(.https.);/const https = require(.http.);/g' server.js && \
+              sed -i 's/https.createServer(options, app)/https.createServer(app)/g' server.js && \
               node server.js
           env:
             - name: PORT
@@ -96,10 +79,29 @@ spec:
           volumeMounts:
             - name: signaling-code
               mountPath: /usr/src/app
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 300m
-              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdo-ninja-frontend
+  namespace: vdo-ninja
+spec:
+  selector:
+    app: vdo-ninja-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdo-ninja-signaling
+  namespace: vdo-ninja
+spec:
+  selector:
+    app: vdo-ninja-signaling
+  ports:
+    - name: signaling
+      port: 3000
+      targetPort: 3000

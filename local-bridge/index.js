@@ -9,6 +9,7 @@ console.log('--- Twitch Ableton Local Bridge (JZZ) ---');
 
 // 1. Setup MIDI
 let midiOutput = null;
+const bridgeCache = new Map(); // Store last known values
 
 // Initialize JZZ
 // Initialize JZZ
@@ -69,6 +70,11 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
                                 const value = msg[2] || 0;
 
                                 console.log(`MIDI IN: Ch${channel} CC${controller} Val${value}`);
+
+                                // Update Local Cache
+                                const key = `${channel}-${controller}`;
+                                bridgeCache.set(key, value);
+
                                 broadcastSync(channel, controller, value);
                             }
                         }
@@ -145,6 +151,16 @@ function connectToEBS() {
     ws.on('open', () => {
         console.log('Connected to Extension Backend Service (EBS)');
         ws.send(JSON.stringify({ type: 'identify', role: 'bridge' }));
+
+        // Send Cache (Bulk Sync) to EBS to restore state after deployment
+        if (bridgeCache.size > 0) {
+            console.log(`Sending Bulk Sync (${bridgeCache.size} items)...`);
+            const bulkData = Object.fromEntries(bridgeCache);
+            ws.send(JSON.stringify({
+                type: 'bulk_sync',
+                data: bulkData
+            }));
+        }
     });
 
     ws.on('message', (data) => {

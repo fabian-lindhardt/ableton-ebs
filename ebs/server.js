@@ -33,6 +33,16 @@ wss.on('connection', (ws) => {
                 bridgeSocket = ws;
             }
 
+            // 1b. Bulk Sync from Bridge (Restoring state after EBS restart)
+            if (data.type === 'bulk_sync') {
+                console.log(`Received Bulk Sync: ${Object.keys(data.data).length} items`);
+                Object.entries(data.data).forEach(([key, val]) => {
+                    stateCache.set(key, val);
+                });
+                // We do NOT broadcast this to PubSub to avoid spamming the API limits with 100+ requests.
+                // The Viewer will fetch via API separately.
+            }
+
             // 2. Sync from Bridge (Ableton -> Extension)
             if (data.type === 'sync') {
                 console.log('Received Sync:', data.data);

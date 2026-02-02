@@ -620,14 +620,15 @@ if (unlockBtn) {
     console.log("Unlock button found, attaching listener.");
     unlockBtn.addEventListener('click', () => {
         console.log("Unlock button CLICKED!");
-        // Force local transaction if on localhost
+        // Force local transaction if on localhost OR if user is broadcaster
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isBroadcaster = window.Twitch && window.Twitch.ext.viewer && window.Twitch.ext.viewer.role === 'broadcaster';
 
-        if (twitch && twitch.bits && !isLocal) {
+        if (twitch && twitch.bits && !isLocal && !isBroadcaster) {
             console.log("Using Twitch Bits API...");
             twitch.bits.useBits('vip-session-5min');
         } else {
-            console.log("Using Local Transaction Simulation (EBS)...");
+            console.log("Using Transaction Simulation (EBS)...");
             fetch(EBS_API.replace('/trigger', '/transaction'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },

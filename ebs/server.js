@@ -182,13 +182,18 @@ const { addSessionTime, getSession, requireVip } = require('./transactions');
 
 // Transaction Handler (Frontend sends this after Bits are used)
 app.post('/api/transaction', verifyTwitchToken, (req, res) => {
-    // In a real app, verify the JWT from the Twitch Transaction Receipt!
-    // For MVP, we trust the client sends the correct SKU/Bits, but we verify the User via Auth Token.
     const { cost, sku } = req.body;
     const userId = req.user.user_id || req.user.opaque_user_id;
 
     if (!cost || cost <= 0) {
-        return res.status(400).json({ success: false, message: 'Invalid Page' });
+        return res.status(400).json({ success: false, message: 'Invalid Bits' });
+    }
+
+    // Broadcaster Simulation Override
+    if (req.user.role === 'broadcaster' || !IS_PRODUCTION) {
+        console.log(`[TEST-BYPASS] Granting Free session to ${req.user.role}: ${userId}`);
+        const session = addSessionTime(userId, parseInt(cost) || 100);
+        return res.json({ success: true, session });
     }
 
     const session = addSessionTime(userId, parseInt(cost));
@@ -200,7 +205,17 @@ app.post('/api/transaction', verifyTwitchToken, (req, res) => {
 // Session Status Check
 app.get('/api/session', verifyTwitchToken, (req, res) => {
     const userId = req.user.user_id || req.user.opaque_user_id;
-    const session = getSession(userId);
+    let session = getSession(userId);
+
+    // Broadcaster always has "Tester" access to their own extension
+    if (!session && req.user.role === 'broadcaster') {
+        session = {
+            isActive: true,
+            expiresAt: Date.now() + 3600000, // 1 hour dummy for testing
+            isBroadcaster: true
+        };
+    }
+
     res.json({ success: true, session });
 });
 

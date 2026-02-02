@@ -581,11 +581,11 @@ function activateVip(expiresAt) {
 
         // Add WSS if it's our domain
         if (finalUrl.includes('flairtec.de')) {
-            finalUrl += `&wss=wss://vdo.flairtec.de/socket.io`;
+            finalUrl += `&wss=vdo.flairtec.de`;
         }
 
         console.log("Injecting audio iframe with URL:", finalUrl);
-        container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media"></iframe>`;
+        container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media; microphone; fullscreen"></iframe>`;
 
         // Add a manual link just in case autoplay fails
         const fallback = document.createElement('div');

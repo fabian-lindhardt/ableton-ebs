@@ -16,6 +16,9 @@ spec:
       volumes:
         - name: frontend-code
           emptyDir: {}
+        - name: nginx-config
+          configMap:
+            name: vdo-ninja-nginx-config
       initContainers:
         - name: clone-frontend
           image: alpine/git
@@ -31,6 +34,9 @@ spec:
           volumeMounts:
             - name: frontend-code
               mountPath: /usr/share/nginx/html
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -51,15 +57,32 @@ spec:
         - name: signaling
           image: node:18-slim
           workingDir: /usr/src/app
-          # FIX: Replacing the SSL server creation block with plain HTTP.
-          # We search for the https require and createServer block and replace it.
           command: 
             - "sh"
             - "-c"
             - |
-              npm install && \
-              sed -i 's/const https = require(.https.);/const https = require(.http.);/g' server.js && \
-              sed -i 's/https.createServer(options, app)/https.createServer(app)/g' server.js && \
+              npm init -y && \
+              npm install express socket.io && \
+              cat <<EOF > server.js
+              "use strict";
+              const http = require("http");
+              const express = require("express");
+              const app = express();
+              const server = http.createServer(app);
+              const io = require("socket.io")(server, {
+                cors: { origin: "*", methods: ["GET", "POST"] }
+              });
+              io.on("connection", (socket) => {
+                socket.on("message", (msg) => { socket.broadcast.emit("message", msg); });
+                socket.on("join", (room) => { socket.join(room); });
+                socket.on("signal", (data) => {
+                  if (data.to) socket.to(data.to).emit("signal", { from: socket.id, ...data });
+                  else socket.broadcast.emit("signal", { from: socket.id, ...data });
+                });
+              });
+              const port = process.env.PORT || 3000;
+              server.listen(port, () => { console.log("Signaling server (Socket.io) started on port " + port); });
+              EOF
               node server.js
           env:
             - name: PORT

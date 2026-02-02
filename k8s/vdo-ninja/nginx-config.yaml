@@ -20,6 +20,17 @@ data:
         server {
             listen       80;
             server_name  localhost;
+
+            # Dedicated Socket.io Proxy
+            location /socket.io/ {
+                proxy_pass http://vdo-ninja-signaling:3000;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "Upgrade";
+                proxy_set_header Host $host;
+                proxy_cache_bypass $http_upgrade;
+            }
+
             location / {
                 # Proxy WebSockets to signaling service if Upgrade header is present
                 if ($http_upgrade = "websocket") {

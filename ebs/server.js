@@ -23,7 +23,7 @@ wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
-            
+
             // 1. Identification
             if (data.type === 'identify' && data.role === 'bridge') {
                 console.log('Local Bridge connected.');
@@ -32,7 +32,7 @@ wss.on('connection', (ws) => {
 
             // 2. Sync from Bridge (Ableton -> Extension)
             if (data.type === 'sync') {
-                // console.log('Received Sync:', data.data);
+                console.log('Received Sync:', data.data);
                 // Broadcast to Twitch PubSub
                 await broadcastToPubSub(data);
             }
@@ -83,7 +83,7 @@ async function broadcastToPubSub(payload) {
                 target: ['broadcast'],
                 broadcaster_id: channelId,
                 is_global_broadcast: false,
-                message: JSON.stringify(payload) 
+                message: JSON.stringify(payload)
             })
         });
 
@@ -91,7 +91,7 @@ async function broadcastToPubSub(payload) {
             const errText = await response.text();
             console.error('PubSub API Error:', response.status, errText);
         } else {
-            // console.log('PubSub Broadcast Sent!');
+            console.log('PubSub Broadcast Sent!');
         }
 
     } catch (e) {

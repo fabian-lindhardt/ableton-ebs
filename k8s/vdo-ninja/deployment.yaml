@@ -13,12 +13,35 @@ spec:
       labels:
         app: vdo-ninja
     spec:
+      volumes:
+        - name: frontend-code
+          emptyDir: {}
+        - name: signaling-code
+          emptyDir: {}
+      initContainers:
+        # Clone Frontend Code
+        - name: clone-frontend
+          image: alpine/git
+          command: ["git", "clone", "https://github.com/steveseguin/vdo.ninja.git", "/mnt/code"]
+          volumeMounts:
+            - name: frontend-code
+              mountPath: /mnt/code
+        # Clone Signaling Code
+        - name: clone-signaling
+          image: alpine/git
+          command: ["git", "clone", "https://github.com/steveseguin/websocket_server.git", "/mnt/code"]
+          volumeMounts:
+            - name: signaling-code
+              mountPath: /mnt/code
       containers:
-        # 1. VDO.Ninja Web Frontend
+        # 1. VDO.Ninja Web Frontend (Serving via Nginx)
         - name: frontend
-          image: umlat/vdo.ninja:latest
+          image: nginx:alpine
           ports:
             - containerPort: 80
+          volumeMounts:
+            - name: frontend-code
+              mountPath: /usr/share/nginx/html
           resources:
             requests:
               cpu: 100m
@@ -27,35 +50,23 @@ spec:
               cpu: 500m
               memory: 256Mi
 
-        # 2. Signaling (Handshake) Server
+        # 2. Signaling (Handshake) Server (Running via Node)
         - name: signaling
-          image: steveseguin/websocket_server:latest
-          ports:
-            - containerPort: 3000
+          image: node:18-alpine
+          workingDir: /usr/src/app
+          command: ["sh", "-c", "npm install && node server.js"]
           env:
             - name: PORT
               value: "3000"
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: signaling-code
+              mountPath: /usr/src/app
           resources:
             requests:
               cpu: 100m
-              memory: 64Mi
+              memory: 128Mi
             limits:
               cpu: 300m
-              memory: 128Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vdo-ninja
-  namespace: vdo-ninja
-spec:
-  selector:
-    app: vdo-ninja
-  ports:
-    - name: http
-      port: 80
-      targetPort: 80
-    - name: signaling
-      port: 3000
-      targetPort: 3000
-  type: ClusterIP
+              memory: 256Mi

@@ -581,7 +581,7 @@ function activateVip(expiresAt) {
 
         // Add WSS if it's our domain
         if (finalUrl.includes('flairtec.de')) {
-            finalUrl += `&wss=vdo.flairtec.de`;
+            finalUrl += `&wss=vdo.flairtec.de/socket.io`;
         }
 
         console.log("Injecting audio iframe with URL:", finalUrl);

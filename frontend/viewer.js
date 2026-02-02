@@ -591,7 +591,7 @@ function startAudioStream() {
     finalUrl += urlParams;
 
     if (finalUrl.includes('flairtec.de')) {
-        finalUrl += `&wss=vdo.flairtec.de/socket.io`;
+        finalUrl += `&wss=vdo.flairtec.de`;
     }
 
     console.log("Injecting audio iframe with URL:", finalUrl);

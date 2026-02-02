@@ -1,40 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vdo-ninja
+  name: vdo-ninja-frontend
   namespace: vdo-ninja
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vdo-ninja
+      app: vdo-ninja-frontend
   template:
     metadata:
       labels:
-        app: vdo-ninja
+        app: vdo-ninja-frontend
     spec:
       volumes:
         - name: frontend-code
           emptyDir: {}
-        - name: signaling-code
-          emptyDir: {}
       initContainers:
-        # Clone Frontend Code
         - name: clone-frontend
           image: alpine/git
           command: ["git", "clone", "https://github.com/steveseguin/vdo.ninja.git", "/mnt/code"]
           volumeMounts:
             - name: frontend-code
               mountPath: /mnt/code
-        # Clone Signaling Code
-        - name: clone-signaling
-          image: alpine/git
-          command: ["git", "clone", "https://github.com/steveseguin/websocket_server.git", "/mnt/code"]
-          volumeMounts:
-            - name: signaling-code
-              mountPath: /mnt/code
       containers:
-        # 1. VDO.Ninja Web Frontend (Serving via Nginx)
         - name: frontend
           image: nginx:alpine
           ports:
@@ -42,19 +31,44 @@ spec:
           volumeMounts:
             - name: frontend-code
               mountPath: /usr/share/nginx/html
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-
-        # 2. Signaling (Handshake) Server (Running via Node)
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vdo-ninja-signaling
+  namespace: vdo-ninja
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vdo-ninja-signaling
+  template:
+    metadata:
+      labels:
+        app: vdo-ninja-signaling
+    spec:
+      volumes:
+        - name: signaling-code
+          emptyDir: {}
+      initContainers:
+        - name: clone-signaling
+          image: alpine/git
+          command: ["git", "clone", "https://github.com/steveseguin/websocket_server.git", "/mnt/code"]
+          volumeMounts:
+            - name: signaling-code
+              mountPath: /mnt/code
+      containers:
         - name: signaling
           image: node:18-alpine
           workingDir: /usr/src/app
-          command: ["sh", "-c", "npm install && node server.js"]
+          # PATCH: We remove the SSL certificate loading lines that cause the crash
+          command: ["sh", "-c", "npm install && sed -i 's/.*privkey.pem.*//g' server.js && sed -i 's/.*fullchain.pem.*//g' server.js && node server.js"]
           env:
             - name: PORT
               value: "3000"
@@ -63,10 +77,29 @@ spec:
           volumeMounts:
             - name: signaling-code
               mountPath: /usr/src/app
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 300m
-              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdo-ninja-frontend
+  namespace: vdo-ninja
+spec:
+  selector:
+    app: vdo-ninja-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdo-ninja-signaling
+  namespace: vdo-ninja
+spec:
+  selector:
+    app: vdo-ninja-signaling
+  ports:
+    - name: signaling
+      port: 3000
+      targetPort: 3000

@@ -21,7 +21,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: vdo-ninja
+                name: vdo-ninja-frontend
                 port:
                   number: 80
           # Signaling (Websocket)
@@ -29,6 +29,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: vdo-ninja
+                name: vdo-ninja-signaling
                 port:
                   number: 3000

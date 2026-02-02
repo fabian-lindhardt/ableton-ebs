@@ -2,6 +2,7 @@
 const MAX_TRIGGERS = 12;
 let activeTriggers = [];
 let authToken = '';
+let currentVdoId = null;
 
 // MOCK CONFIGURATION for Localhost
 const MOCK_CONFIG = {
@@ -544,8 +545,7 @@ function activateVip(expiresAt) {
     timerInterval = setInterval(updateTimerDisplay, 1000);
     const container = document.getElementById('audio-container');
     if (container && !container.innerHTML) {
-        // Get VDO ID following priority: 
-        // 1. Production Config (Broadcaster)
+        // 1. Production Config (Broadcaster/Global)
         // 2. Local Dev Input (localStorage)
         // 3. Fallback Default
         let vdoId = currentVdoId || "ZtDACFm";
@@ -553,17 +553,47 @@ function activateVip(expiresAt) {
             vdoId = localStorage.getItem('dev_vdo_id') || vdoId;
         }
 
-        const dynamicUrl = `https://vdo.ninja/?view=${vdoId}&autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart`;
-        console.log("Injecting audio iframe with URL:", dynamicUrl);
-        container.innerHTML = `<iframe src="${dynamicUrl}" allow="autoplay; encrypted-media"></iframe>`;
+        let baseUrl = "https://vdo.ninja/";
+        let params = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart`;
+
+        // If it's a domain like vdo.flairtec.de
+        if (vdoId.includes('.') && !vdoId.includes('/')) {
+            baseUrl = `https://${vdoId}/`;
+            vdoId = "Ge4NiV6"; // Fallback ID if just domain is provided? 
+            // Better: if it's a domain, maybe it already HAS the ID if it's a full URL
+        }
+
+        // Improved Logic:
+        let finalUrl = "";
+        if (vdoId.startsWith('http')) {
+            // It's a full URL
+            finalUrl = vdoId;
+            if (!finalUrl.includes('?')) finalUrl += "?";
+            else finalUrl += "&";
+            finalUrl += params;
+        } else if (vdoId.includes('.')) {
+            // It's a domain
+            finalUrl = `https://${vdoId}/?view=Ge4NiV6&${params}`;
+        } else {
+            // It's just an ID
+            finalUrl = `https://vdo.ninja/?view=${vdoId}&${params}`;
+        }
+
+        // Add WSS if it's our domain
+        if (finalUrl.includes('flairtec.de')) {
+            finalUrl += `&wss=wss://vdo.flairtec.de/socket.io`;
+        }
+
+        console.log("Injecting audio iframe with URL:", finalUrl);
+        container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media"></iframe>`;
 
         // Add a manual link just in case autoplay fails
         const fallback = document.createElement('div');
-        fallback.style.cssText = "font-size: 10px; color: #666; margin-top: 5px; cursor: pointer;";
+        fallback.style.cssText = "font-size: 10px; color: #666; margin-top: 5px; cursor: pointer; text-align: center;";
         fallback.innerText = "Audio not playing? Click here to refresh stream.";
         fallback.onclick = () => {
             console.log("Manual stream refresh triggered.");
-            container.innerHTML = `<iframe src="${dynamicUrl}&reload=${Date.now()}" allow="autoplay; encrypted-media"></iframe>`;
+            container.innerHTML = `<iframe src="${finalUrl}&reload=${Date.now()}" allow="autoplay; encrypted-media"></iframe>`;
         };
         container.appendChild(fallback);
     }

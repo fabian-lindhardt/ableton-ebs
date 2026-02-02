@@ -189,4 +189,5 @@ app.post('/api/trigger', verifyTwitchToken, (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`EBS listening on http://localhost:${PORT}`);
+    console.log(`Build Timestamp: ${new Date().toISOString()}`);
 });

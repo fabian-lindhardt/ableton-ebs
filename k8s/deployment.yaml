@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ableton-ebs
+  namespace: ableton-ebs
   labels:
-    app: ableton-ebs
 spec:
   replicas: 1
   selector:
@@ -37,6 +37,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ableton-ebs
+  namespace: ableton-ebs
 spec:
   selector:
     app: ableton-ebs
@@ -49,6 +50,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: ableton-ebs-secrets
+  namespace: ableton-ebs
 type: Opaque
 stringData:
   TWITCH_SECRET: "L0KsD31sIuMSFCcPtQOpC2kN6YBlXXwl/iyV+o3+JxQ="

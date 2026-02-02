@@ -680,10 +680,12 @@ input[type=range].fader-input::-moz-range-thumb {
 
 /* Audio Player (Hidden/Visible logic) */
 #audio-container {
-    width: 0;
-    height: 0;
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 10px;
+    height: 10px;
     overflow: hidden;
-    opacity: 0;
     pointer-events: none;
 }
 

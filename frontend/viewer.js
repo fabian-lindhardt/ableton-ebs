@@ -563,21 +563,31 @@ function activateVip(expiresAt) {
             // Better: if it's a domain, maybe it already HAS the ID if it's a full URL
         }
 
-        // Improved Logic:
+        // Improved Robust Logic:
         let finalUrl = "";
+        const defaultId = "ZtDACFm"; // Your specific default ID
+
         if (vdoId.startsWith('http')) {
-            // It's a full URL
+            // Full URL provided
             finalUrl = vdoId;
-            if (!finalUrl.includes('?')) finalUrl += "?";
-            else finalUrl += "&";
-            finalUrl += params;
         } else if (vdoId.includes('.')) {
-            // It's a domain
-            finalUrl = `https://${vdoId}/?view=Ge4NiV6&${params}`;
+            // Domain provided (e.g. vdo.flairtec.de)
+            // We assume it's just the host, so we use a view ID
+            // If the user wants a specific ID on their domain, they should use a full URL in config
+            finalUrl = `https://${vdoId}/?view=${defaultId}`;
         } else {
-            // It's just an ID
-            finalUrl = `https://vdo.ninja/?view=${vdoId}&${params}`;
+            // Just an ID provided
+            // Use self-hosted domain if available, otherwise vdo.ninja
+            const domain = (currentVdoId && currentVdoId.includes('.')) ? currentVdoId : "vdo.ninja";
+            finalUrl = `https://${domain}/?view=${vdoId}`;
         }
+
+        // Ensure all parameters are present
+        if (!finalUrl.includes('?')) finalUrl += "?";
+        else if (!finalUrl.endsWith('?') && !finalUrl.endsWith('&')) finalUrl += "&";
+
+        const urlParams = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart&cleanoutput`;
+        finalUrl += urlParams;
 
         // Add WSS if it's our domain
         if (finalUrl.includes('flairtec.de')) {

@@ -532,7 +532,7 @@ function lockInterface() {
     document.getElementById('app').classList.add('is-locked');
     document.getElementById('app').classList.remove('is-vip');
     const container = document.getElementById('audio-container');
-    if (container) container.innerHTML = '';
+    if (container) container.innerHTML = '<audio id="vdo-audio" autoplay playsinline></audio>'; // Ensure audio element exists
     if (timerInterval) clearInterval(timerInterval);
 }
 
@@ -546,7 +546,7 @@ function activateVip(expiresAt) {
     timerInterval = setInterval(updateTimerDisplay, 1000);
 
     const container = document.getElementById('audio-container');
-    if (container) container.innerHTML = ''; // Reset container
+    if (container) container.innerHTML = '<audio id="vdo-audio" autoplay playsinline></audio>'; // Ensure audio element exists
 
     // Prepare the Join Button
     const joinBtn = document.getElementById('btn-join-audio');
@@ -561,50 +561,23 @@ function activateVip(expiresAt) {
 }
 
 function startAudioStream() {
-    const container = document.getElementById('audio-container');
-    if (!container) return;
-
     // 1. Production Config (Broadcaster/Global)
-    // 2. Local Dev Input (localStorage)
-    // 3. Fallback Default
-    let vdoId = currentVdoId || "ZtDACFm";
+    let vdoId = currentVdoId || "bhpkXZU";
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         vdoId = localStorage.getItem('dev_vdo_id') || vdoId;
     }
 
-    // Improved Robust Logic:
-    let finalUrl = "";
-    const defaultId = "ZtDACFm";
+    // Direct WebRTC Setup (Bypasses iFrame CSP)
+    const domain = (vdoId && vdoId.includes('.')) ? vdoId.split('/')[2] || vdoId : "vdo.flairtec.de";
+    const room = vdoId.includes('view=') ? vdoId.split('view=')[1].split('&')[0] : vdoId;
 
-    if (vdoId.startsWith('http')) {
-        finalUrl = vdoId;
-    } else if (vdoId.includes('.')) {
-        finalUrl = `https://${vdoId}/?view=${defaultId}`;
-    } else {
-        const domain = (currentVdoId && currentVdoId.includes('.')) ? currentVdoId : "vdo.ninja";
-        finalUrl = `https://${domain}/?view=${vdoId}`;
+    console.log("[VDO] Initializing direct WebRTC receiver for:", domain, "Room:", room);
+
+    // Create the receiver instance
+    if (!window.vdoReceiver) {
+        window.vdoReceiver = new VdoReceiver(domain, room);
+        window.vdoReceiver.start('vdo-audio');
     }
-
-    // Ensure parameters
-    if (!finalUrl.includes('?')) finalUrl += "?";
-    else if (!finalUrl.endsWith('?') && !finalUrl.endsWith('&')) finalUrl += "&";
-
-    const urlParams = `autoplay=1&proaudio=1&stereo=1&audiobitrate=256&autostart`;
-    finalUrl += urlParams;
-
-    console.log("Injecting audio iframe with URL:", finalUrl);
-    container.innerHTML = `<iframe src="${finalUrl}" allow="autoplay; encrypted-media; microphone; fullscreen"></iframe>`;
-
-    // Add a manual link just in case autoplay fails
-    const fallback = document.createElement('div');
-    fallback.style.cssText = "font-size: 10px; color: #666; margin-top: 5px; cursor: pointer; text-align: center;";
-    fallback.innerText = "Audio not playing? Click here to refresh stream.";
-    fallback.onclick = (e) => {
-        e.stopPropagation();
-        console.log("Manual stream refresh triggered.");
-        container.innerHTML = `<iframe src="${finalUrl}&reload=${Date.now()}" allow="autoplay; encrypted-media"></iframe>`;
-    };
-    container.appendChild(fallback);
 }
 
 function updateTimerDisplay() {

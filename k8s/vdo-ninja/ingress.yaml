@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: vdo-ninja
+  name: audio-signaling
   namespace: vdo-ninja
   annotations:
     kubernetes.io/ingress.class: traefik
@@ -16,27 +16,11 @@ spec:
     - host: vdo.flairtec.de
       http:
         paths:
-          # Frontend
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: vdo-ninja-frontend
-                port:
-                  number: 80
-          # Signaling (Raw Websocket)
+          # Audio Signaling WebSocket
           - path: /ws
             pathType: Prefix
             backend:
               service:
-                name: vdo-ninja-signaling
-                port:
-                  number: 3000
-          # Legacy Signaling (Socket.io - deprecated)
-          - path: /socket.io
-            pathType: Prefix
-            backend:
-              service:
-                name: vdo-ninja-signaling
+                name: audio-signaling
                 port:
                   number: 3000

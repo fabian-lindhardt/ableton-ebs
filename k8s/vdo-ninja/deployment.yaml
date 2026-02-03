@@ -1,57 +1,19 @@
+# Audio Signaling Server (SimpleRelay)
+# Used for custom WebRTC audio streaming between Broadcaster and Viewers
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vdo-ninja-frontend
-  namespace: vdo-ninja
+  name: audio-signaling
+  namespace: vdo-ninja # Legacy namespace, kept for ingress compatibility
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vdo-ninja-frontend
+      app: audio-signaling
   template:
     metadata:
       labels:
-        app: vdo-ninja-frontend
-    spec:
-      volumes:
-        - name: frontend-code
-          emptyDir: {}
-        - name: nginx-config
-          configMap:
-            name: vdo-ninja-nginx-config
-      initContainers:
-        - name: clone-frontend
-          image: alpine/git
-          command: ["git", "clone", "https://github.com/steveseguin/vdo.ninja.git", "/mnt/code"]
-          volumeMounts:
-            - name: frontend-code
-              mountPath: /mnt/code
-      containers:
-        - name: frontend
-          image: nginx:alpine
-          ports:
-            - containerPort: 80
-          volumeMounts:
-            - name: frontend-code
-              mountPath: /usr/share/nginx/html
-            - name: nginx-config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: vdo-ninja-signaling
-  namespace: vdo-ninja
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: vdo-ninja-signaling
-  template:
-    metadata:
-      labels:
-        app: vdo-ninja-signaling
+        app: audio-signaling
     spec:
       containers:
         - name: signaling
@@ -110,7 +72,7 @@ spec:
               });
 
               const port = process.env.PORT || 3000;
-              server.listen(port, () => { console.log("SimpleRelay (Custom) started on port " + port); });
+              server.listen(port, () => { console.log("AudioSignaling started on port " + port); });
               EOF
               node server.js
           env:
@@ -122,24 +84,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: vdo-ninja-frontend
+  name: audio-signaling
   namespace: vdo-ninja
 spec:
   selector:
-    app: vdo-ninja-frontend
-  ports:
-    - name: http
-      port: 80
-      targetPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vdo-ninja-signaling
-  namespace: vdo-ninja
-spec:
-  selector:
-    app: vdo-ninja-signaling
+    app: audio-signaling
   ports:
     - name: signaling
       port: 3000

@@ -605,6 +605,39 @@ input[type=range].fader-input::-moz-range-thumb {
     padding: 5px 10px;
 }
 
+/* Transport Buttons (Grid Item) */
+.type-transport {
+    background: transparent !important;
+}
+
+.type-transport .pad-inner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--item-color);
+    box-shadow: 0 0 10px var(--item-color);
+    border-radius: 12px;
+    height: 100%;
+    width: 100%;
+    transition: all 0.2s;
+    overflow: hidden;
+}
+
+.type-transport .pad-inner:hover {
+    background: var(--item-color);
+    color: black;
+    box-shadow: 0 0 20px var(--item-color);
+}
+
+.type-transport .transport-icon {
+    font-size: 2rem;
+    line-height: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 /* --- VIP / Locked States --- */
 
 /* App Container relative for absolute overlays */

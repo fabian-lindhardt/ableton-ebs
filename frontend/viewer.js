@@ -459,6 +459,31 @@ function renderButtons() {
             document.addEventListener('touchmove', (e) => { if (isDragging) updateXY(e.touches[0].clientX, e.touches[0].clientY); });
             document.addEventListener('touchend', () => { isDragging = false; });
 
+        } else if (['start', 'stop', 'pause'].includes(trigger.type)) {
+            wrapper.classList.add('type-transport');
+
+            let icon = '▶';
+            if (trigger.type === 'stop') icon = '◼';
+            if (trigger.type === 'pause') icon = '⏸';
+
+            wrapper.innerHTML = `
+                <div class="pad-inner transport-inner">
+                    <span class="transport-icon">${icon}</span>
+                    ${trigger.cost > 0 ? `<span class="cost">💎 ${trigger.cost}</span>` : ''}
+                </div>
+            `;
+
+            wrapper.classList.add('controls-widget');
+
+            wrapper.onclick = (e) => {
+                if (isEditMode) return;
+                wrapper.classList.add('btn-flash');
+                setTimeout(() => wrapper.classList.remove('btn-flash'), 200);
+                sendCommand(trigger.type);
+            };
+
+            container.appendChild(wrapper);
+
         } else {
             wrapper.classList.add('type-btn');
             let isToggled = false;
@@ -670,7 +695,8 @@ function checkWhitelist(target) {
     // Stop propagation if it's a control, join button, OR static controls (Play/Stop)
     const isControl = target.closest('#dynamic-triggers') ||
         target.closest('#btn-join-audio') ||
-        target.closest('.controls'); // Play/Stop block
+        target.closest('.controls') || // Legacy block
+        target.closest('.controls-widget'); // New Grid Transport
 
     if (!isControl) return true; // Allow clicking empty space
 

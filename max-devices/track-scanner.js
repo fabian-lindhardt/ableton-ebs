@@ -1,11 +1,8 @@
-// Segmented Reactive Engine v44.6 - Ultra-Robust Fix
-// Outlets: 0 -> to udpsend 127.0.0.1 9005
-
+// Segmented Reactive Engine v45 - OSC Commands + Grid Sync
 autowatch = 1;
-inlets = 1; // RE-ENFORCING SINGLE INLET
+inlets = 1;
 outlets = 1;
 
-// Global Persistent APIs
 var trackApis = [];
 var slotApi = new LiveAPI("");
 var clipApi = new LiveAPI("");
@@ -28,9 +25,9 @@ function initPool() {
                 trackApis.push(api);
             }
         }
-        post("v44.6: Global Pool Ready (" + poolSize + " tracks).\n");
+        post("v45: Observer Pool (" + poolSize + " tracks).\n");
     } catch (e) {
-        post("v44.6 Init Error: " + e + "\n");
+        post("v45 Init Error: " + e + "\n");
     }
 }
 
@@ -44,7 +41,6 @@ function sendTrackData(idx) {
     try {
         var tApi = new LiveAPI("live_set tracks " + idx);
         if (!tApi || tApi.id == 0) return;
-
         var clips = [];
         for (var j = 0; j < 12; j++) {
             slotApi.path = "live_set tracks " + idx + " clip_slots " + j;
@@ -61,7 +57,6 @@ function sendTrackData(idx) {
                 }
             }
         }
-
         outlet(0, JSON.stringify({
             type: "metadata",
             data: { tracks: [{ index: idx, name: limitStr(cleanString(tApi.get("name")), 12), color: hexify(tApi.get("color")), clips: clips }] }
@@ -71,7 +66,7 @@ function sendTrackData(idx) {
 
 function segmentedRefresh() {
     try {
-        post("v44.6: Initializing UI Sync...\n");
+        post("v45: Syncing Grid...\n");
         var scenes = [];
         for (var i = 0; i < 12; i++) {
             sceneApi.path = "live_set scenes " + i;
@@ -86,7 +81,7 @@ function segmentedRefresh() {
                 sendTrackData(this.current);
                 this.current++;
             } else {
-                post("v44.6: UI Sync Complete.\n");
+                post("v45: Grid Sync Complete.\n");
                 arguments.callee.task.cancel();
             }
         }, this);
@@ -106,66 +101,38 @@ function msg_int(v) {
     if (v == 1) bang();
 }
 
-// Catch-all Command Handler
+// OSC Command Handler
 function anything() {
-    var args = arrayfromargs(messagename, arguments);
-    var cmd = args[0];
+    var address = messagename;
+    var args = arrayfromargs(arguments);
 
-    // DETAILED DEBUG LOGGING
-    post("v44.6 RECVD: " + cmd + " | args: " + args.slice(1) + " | inlet: " + inlet + "\n");
+    // Check if it's an OSC address (starts with /)
+    if (address.charAt(0) === "/") {
+        post("v45 OSC: " + address + " | " + args + "\n");
 
-    if (cmd === "launch_clip") {
-        var tIdx = Number(args[1]);
-        var sIdx = Number(args[2]);
-        var path = "live_set tracks " + tIdx + " clip_slots " + sIdx;
-
-        slotApi.path = path;
-        if (slotApi.id != 0) {
-            slotApi.call("fire");
-            post("v44.6 SUCCESS: Fired Clip at Track " + tIdx + " Slot " + sIdx + "\n");
-        } else {
-            post("v44.6 FAIL: Clip Path invalid: " + path + "\n");
+        if (address === "/launch_clip" && args.length >= 2) {
+            slotApi.path = "live_set tracks " + args[0] + " clip_slots " + args[1];
+            if (slotApi.id != 0) {
+                slotApi.call("fire");
+                post("v45: FIRED CLIP T" + args[0] + " S" + args[1] + "\n");
+            }
+        } else if (address === "/launch_scene" && args.length >= 1) {
+            sceneApi.path = "live_set scenes " + args[0];
+            if (sceneApi.id != 0) {
+                sceneApi.call("fire");
+                post("v45: FIRED SCENE " + args[0] + "\n");
+            }
         }
-    } else if (cmd === "launch_scene") {
-        var sIdx = Number(args[1]);
-        var path = "live_set scenes " + sIdx;
-
-        sceneApi.path = path;
-        if (sceneApi.id != 0) {
-            sceneApi.call("fire");
-            post("v44.6 SUCCESS: Fired Scene " + sIdx + "\n");
-        } else {
-            post("v44.6 FAIL: Scene Path invalid: " + path + "\n");
-        }
-    } else if (cmd === "refresh") {
+    } else if (address === "refresh") {
         bang();
     }
 }
 
-function loadbang() {
-    post("v44.6: Loadbang Init.\n");
-    bang();
-}
+function loadbang() { bang(); }
 
-// Helpers
-function limitStr(str, max) {
-    if (!str) return "";
-    var s = String(str);
-    if (s.length > max) return s.substring(0, max) + "..";
-    return s;
-}
-
-function cleanString(val) {
-    if (!val) return "";
-    if (Array.isArray(val)) return val.join(" ");
-    return String(val);
-}
-
-function hexify(colorVal) {
-    var val = Array.isArray(colorVal) ? colorVal[0] : colorVal;
-    if (val === undefined || val === null) return "#666666";
-    return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
-}
+function limitStr(str, max) { if (!str) return ""; var s = String(str); return s.length > max ? s.substring(0, max) + ".." : s; }
+function cleanString(val) { if (!val) return ""; return Array.isArray(val) ? val.join(" ") : String(val); }
+function hexify(colorVal) { var val = Array.isArray(colorVal) ? colorVal[0] : colorVal; return val == null ? "#666666" : "#" + ("000000" + parseInt(val).toString(16)).slice(-6); }
 
 initPool();
-post("v44.6: Ready. Check Max Console for Input Logs.\n");
+post("v45 LOADED.\n");

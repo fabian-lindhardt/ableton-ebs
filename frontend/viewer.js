@@ -686,11 +686,14 @@ function renderGridMatrix() {
     // 2. Identify slice
     const trackSlice = activeData.tracks.slice(currentGridOffset, currentGridOffset + 8);
 
-    // 3. DOM Patching Logic
-    // If the number of columns doesn't match or grid is empty, do a full rebuild
+    // 3. DOM Patching Logic - Force rebuild when track indices don't match (navigation)
     const existingCols = grid.querySelectorAll('.grid-column:not(.master-column)');
-    if (existingCols.length !== trackSlice.length) {
-        grid.innerHTML = ''; // Full rebuild for structural changes
+    const existingIndices = Array.from(existingCols).map(c => c.dataset.trackIndex);
+    const newIndices = trackSlice.map(t => String(t.index));
+    const indicesMatch = existingIndices.length === newIndices.length && existingIndices.every((v, i) => v === newIndices[i]);
+
+    if (!indicesMatch) {
+        grid.innerHTML = ''; // Full rebuild when page changed
     }
 
     trackSlice.forEach((track, colIdx) => {

@@ -2,6 +2,7 @@ require('dotenv').config();
 const JZZ = require('jzz');
 const WebSocket = require('ws');
 const dgram = require('dgram');
+const osc = require('osc');
 
 // Configuration
 const EBS_URL = process.env.EBS_URL || 'wss://abletonlivechat.flairtec.de';
@@ -264,15 +265,26 @@ function handleCommand(cmd) {
         }
     } else if (cmd.type === 'launch_clip') {
         const { trackIndex, clipIndex } = cmd.data;
-        const buffer = Buffer.from(`launch_clip ${trackIndex} ${clipIndex}`);
-        udpClient.send(buffer, M4L_CMD_PORT, '127.0.0.1', () => {
-            console.log(`[Bridge] Sent to M4L: launch_clip ${trackIndex} ${clipIndex}`);
+        const oscMsg = osc.writePacket({
+            address: '/launch_clip',
+            args: [
+                { type: 'i', value: trackIndex },
+                { type: 'i', value: clipIndex }
+            ]
+        });
+        udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => {
+            console.log(`[Bridge] OSC to M4L: /launch_clip ${trackIndex} ${clipIndex}`);
         });
     } else if (cmd.type === 'launch_scene') {
         const { sceneIndex } = cmd.data;
-        const buffer = Buffer.from(`launch_scene ${sceneIndex}`);
-        udpClient.send(buffer, M4L_CMD_PORT, '127.0.0.1', () => {
-            console.log(`[Bridge] Sent to M4L: launch_scene ${sceneIndex}`);
+        const oscMsg = osc.writePacket({
+            address: '/launch_scene',
+            args: [
+                { type: 'i', value: sceneIndex }
+            ]
+        });
+        udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => {
+            console.log(`[Bridge] OSC to M4L: /launch_scene ${sceneIndex}`);
         });
     }
 }

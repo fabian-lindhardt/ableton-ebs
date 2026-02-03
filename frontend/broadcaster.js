@@ -15,37 +15,51 @@ function log(msg) {
 }
 
 async function init() {
+    document.getElementById('btn-start').onclick = startStreaming;
+    document.getElementById('btn-refresh').onclick = refreshDevices;
+    refreshDevices();
+}
+
+async function refreshDevices() {
     const selector = document.getElementById('audio-input');
+    selector.innerHTML = ''; // clear
     try {
+        // Force permission request to unmask labels
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop()); // close immediately
+
         const devices = await navigator.mediaDevices.enumerateDevices();
         devices.filter(d => d.kind === 'audioinput').forEach(d => {
             const opt = document.createElement('option');
             opt.value = d.deviceId;
-            opt.text = d.label || `Microphone ${selector.length + 1}`;
+            opt.text = d.label || `Microphone ${selector.options.length + 1}`;
             selector.appendChild(opt);
         });
-    } catch (e) { log("Error listing devices: " + e); }
-
-    document.getElementById('btn-start').onclick = startStreaming;
+        log("✅ Devices refreshed (Permissions granted).");
+    } catch (e) { log("⚠️ Device Refresh Error (Check perms): " + e); }
 }
 
 async function startStreaming() {
     const deviceId = document.getElementById('audio-input').value;
+    log(`Attempting capture with ID: ${deviceId}`);
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
             audio: {
-                deviceId: { exact: deviceId },
+                deviceId: deviceId, // Implies "ideal", not "exact"
                 autoGainControl: false,
                 echoCancellation: false,
-                noiseSuppression: false,
-                channelCount: 2
+                noiseSuppression: false
+                // Removed channelCount to avoid OverconstrainedError on mono mics
             },
             video: false
         });
         log("🎤 Audio captured successfully!");
         document.getElementById('btn-start').disabled = true;
         connectSignaling();
-    } catch (e) { log("❌ Capture failed: " + e); }
+    } catch (e) {
+        log("❌ Capture failed: " + e.name + ": " + e.message);
+        console.error(e);
+    }
 }
 
 function connectSignaling() {

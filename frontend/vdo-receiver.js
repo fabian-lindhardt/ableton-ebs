@@ -42,6 +42,7 @@ class VdoReceiver {
                     const parsed = JSON.parse(data.substring(2));
                     const event = parsed[0];
                     const payload = parsed[1];
+                    console.log("[VDO] Signaling Event:", event, payload);
                     if (event === 'signal') this.handleSignal(payload.msg);
                 } catch (err) { console.warn("[VDO] Failed to parse message:", err); }
             }

@@ -144,7 +144,9 @@ function handleSync(syncData) {
         const trgCh = trigger.channel || 0;
 
         if (trigger.type === 'fader' || trigger.type === 'knob') {
-            if (trgCh == channel && trigger.controller == controller) {
+            console.log(`[Sync-Check] Match test: Trigger(${trigger.label}) Ch:${trgCh} CC:${trigger.controller} vs Sync Ch:${channel} CC:${controller}`);
+            if (trgCh == channel && (trigger.controller == controller || trigger.controllerY == controller)) {
+                console.log(`[Sync-Match!!] Updating ${trigger.label} to ${value}`);
                 const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
                 if (wrapper) {
                     if (trigger.type === 'fader') {

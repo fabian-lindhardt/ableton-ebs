@@ -62,34 +62,43 @@ spec:
             - "-c"
             - |
               npm init -y && \
-              npm install express ws && \
+              npm install express socket.io && \
               cat <<'EOF' > server.js
               "use strict";
               const http = require("http");
               const express = require("express");
-              const WebSocket = require("ws");
               const app = express();
               const server = http.createServer(app);
-              const wss = new WebSocket.Server({ server });
+              const io = require("socket.io")(server, {
+                cors: { origin: "*", methods: ["GET", "POST"] }
+              });
 
-              wss.on("connection", (ws) => {
-                console.log("New raw WebSocket connection");
-                ws.on("message", (data) => {
-                  try {
-                    // Transparent broadcast relay
-                    // VDO.Ninja uses raw JSON strings
-                    wss.clients.forEach((client) => {
-                      if (client !== ws && client.readyState === WebSocket.OPEN) {
-                        client.send(data);
-                      }
-                    });
-                  } catch (e) { console.error("Relay Error:", e); }
+              io.on("connection", (socket) => {
+                console.log("New Proxy Connection:", socket.id);
+                
+                socket.onAny((event, data) => {
+                  console.log(`[Event: ${event}] from ${socket.id}:`, data);
+                  
+                  // Auto-Join based on room/view in payload
+                  if (event === 'join' || event === 'room') {
+                     const room = (typeof data === 'string') ? data : (data.room || data.view);
+                     if (room) socket.join(room);
+                  }
+
+                  // Super Relay Logic
+                  if (data && (data.room || data.view)) {
+                      const room = data.room || data.view;
+                      socket.to(room).emit(event, { ...data, from: socket.id });
+                  } else {
+                      socket.broadcast.emit(event, { ...data, from: socket.id });
+                  }
                 });
-                ws.on("close", () => console.log("Connection closed"));
+
+                socket.on("disconnect", () => console.log("Proxy Disconnect:", socket.id));
               });
 
               const port = process.env.PORT || 3000;
-              server.listen(port, () => { console.log("Raw WebSocket Relay started on port " + port); });
+              server.listen(port, () => { console.log("Supreme Socket.io Relay started on port " + port); });
               EOF
               node server.js
           env:

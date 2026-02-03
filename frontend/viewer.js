@@ -447,7 +447,11 @@ async function sendCommand(type) {
 
 async function sendSmartTrigger(trigger) {
     if (trigger.type !== 'fader') updateStatus(`Sending: ${trigger.label}...`);
-    let midiData = { action: trigger.type, channel: trigger.channel || 1, value: trigger.value };
+    let midiData = {
+        action: trigger.type,
+        channel: (typeof trigger.channel !== 'undefined') ? trigger.channel : 0,
+        value: trigger.value
+    };
     if (trigger.type === 'noteon' || trigger.type === 'noteoff') {
         midiData.note = trigger.note || trigger.value;
         midiData.velocity = trigger.velocity || 100;

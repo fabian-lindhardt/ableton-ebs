@@ -92,7 +92,7 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
 // Helper: Broadcast Sync to EBS
 let wsConnection = null;
 const syncThrottles = new Map(); // Key: "ch-ctrl", Value: { lastRun: 0, timeout: null }
-const SYNC_RATE_LIMIT = 100; // Restored to 100ms for smooth visuals.
+const SYNC_RATE_LIMIT = 50; // Ultra-smooth 20Hz updates
 
 function broadcastSync(channel, controller, value) {
     if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) return;

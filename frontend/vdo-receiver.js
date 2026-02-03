@@ -45,24 +45,42 @@ class VdoReceiver {
             } else if (data === '2') { // Ping
                 this.ws.send('3'); // Pong
             } else if (data.startsWith('40')) { // Socket.io CONNECTED
-                console.log("[VDO] Connected! Sending expanded join sequence...");
+                console.log("[VDO] Connected! Sending robust join sequence...");
+                const myID = "vdo_" + Math.random().toString(36).substring(7);
 
-                // Variation 1: Direct Room ID (Common)
-                this.emit('join', this.roomID);
+                // Variation 1: Socket.io 4 standard room join
+                this.emit('join-room', { room: this.roomID, id: myID, role: 'viewer' });
 
-                // Variation 2: Object room (Newer Socket.io versions)
-                this.emit('join-room', { room: this.roomID });
+                // Variation 2: VDO.Ninja Specific "join" event
+                setTimeout(() => this.emit('join', { room: this.roomID, id: myID }), 500);
 
-                // Variation 3: Requesting Offer (Force response)
-                this.emit('request-offer', { room: this.roomID });
+                // Variation 3: Legacy "room" event
+                setTimeout(() => this.emit('room', { room: this.roomID, id: myID, role: 'viewer' }), 1000);
+
+                // Variation 4: Request offer explicitly
+                setTimeout(() => this.emit('request-offer', { room: this.roomID }), 1500);
             } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
                     const parsed = JSON.parse(data.substring(2));
                     const event = parsed[0];
                     const payload = parsed[1];
-                    console.log(`[VDO-Event-In] [${now}]`, event, payload);
-                    if (event === 'signal') this.handleSignal(payload.msg);
-                } catch (err) { console.warn("[VDO] Failed to parse message:", err); }
+                    console.log(`[VDO-Event-In] [${now}] ${event}:`, payload);
+
+                    if (event === 'signal') {
+                        // VDO sends signals as { room: "...", msg: {type: "offer", sdp: "..."} }
+                        if (payload && payload.msg) {
+                            this.handleSignal(payload.msg);
+                        } else {
+                            // Some versions send signal as the payload itself
+                            this.handleSignal(payload);
+                        }
+                    } else if (event === 'ready') {
+                        console.log("[VDO] Peer is ready, requesting offer again...");
+                        this.emit('request-offer', { room: this.roomID });
+                    }
+                } catch (err) {
+                    console.warn("[VDO] Failed to parse message:", err, data);
+                }
             }
         };
 
@@ -76,25 +94,29 @@ class VdoReceiver {
             const pcState = this.pc ? this.pc.connectionState : 'NONE';
             const iceState = this.pc ? this.pc.iceConnectionState : 'NONE';
             const hasTrack = !!(this.audioElement && this.audioElement.srcObject);
-            console.log(`[VDO-Diag] WS: ${wsState}, PC: ${pcState}, ICE: ${iceState}, Track: ${hasTrack}`);
+            const now = new Date().toLocaleTimeString();
+            console.log(`[VDO-Diag] [${now}] WS: ${wsState}, PC: ${pcState}, ICE: ${iceState}, Track: ${hasTrack}`);
 
-            // Auto-resume AudioContext if it gets stuck
-            if (this.audioCtx && this.audioCtx.state === 'suspended') {
-                console.log("[VDO-Diag] Resuming AudioContext...");
-                this.audioCtx.resume();
+            // Auto-resume contexts and re-join if stuck/silent
+            if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
+            if (wsState === 'OPEN' && pcState === 'new') {
+                console.log("[VDO-Diag] Still 'new' - re-sending join sequence...");
+                this.emit('request-offer', { room: this.roomID });
             }
         }, 10000);
     }
 
     emit(event, data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            console.log("[VDO-Event-Out]", event, data);
-            this.ws.send('42' + JSON.stringify([event, data]));
+            const msg = '42' + JSON.stringify([event, data]);
+            console.log("[VDO-Event-Out] Sending:", event, data);
+            this.ws.send(msg);
         }
     }
 
     async handleSignal(msg) {
         if (!msg) return;
+        console.log("[VDO-Signal-Handle] Type:", msg.type || (msg.candidate ? 'candidate' : 'unknown'));
 
         if (msg.type === 'offer') {
             console.log("[VDO] Received offer, creating answer...");

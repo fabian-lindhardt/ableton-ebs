@@ -4,7 +4,7 @@ const twitch = window.Twitch.ext;
 let currentConfig = {
     triggers: []
 };
-let currentVersion = '0.0.1'; // Default fallback
+let currentVersion = '33'; // Match Console version
 
 // Available MIDI Types
 // Available MIDI Types
@@ -69,6 +69,7 @@ function renderTriggers() {
             ${trigger.type === 'fader' ? ` Fader CC: ${trigger.controller}` : ''}
             ${trigger.type === 'knob' ? ` Knob CC: ${trigger.controller}` : ''}
             ${trigger.type === 'xypad' ? ` XY Pad CC: ${trigger.controller},${trigger.controllerY}` : ''}
+            ${(trigger.trackIndex !== undefined && trigger.trackIndex !== null) ? `<span style="font-size:0.8em; color:var(--accent-teal); margin-left:5px;">[Track: ${trigger.trackIndex}]</span>` : ''}
         `;
 
         // Action Buttons
@@ -109,6 +110,8 @@ function addTrigger() {
     const cost = parseInt(document.getElementById('new-cost').value) || 0;
     const color = document.getElementById('new-color').value;
     const channelRaw = parseInt(document.getElementById('new-channel').value) || 1;
+    const trackIndexInput = document.getElementById('new-track-index').value;
+    const trackIndex = (trackIndexInput !== "") ? parseInt(trackIndexInput) : null;
 
     // Convert 1-16 to 0-15
     const channel = Math.max(0, Math.min(15, channelRaw - 1));
@@ -121,7 +124,8 @@ function addTrigger() {
         type,
         color,
         cost,
-        channel
+        channel,
+        trackIndex
     };
 
     // Add specific MIDI data based on type
@@ -177,6 +181,7 @@ function editTrigger(index) {
     document.getElementById('new-color').value = trigger.color;
     document.getElementById('new-cost').value = trigger.cost || 0;
     document.getElementById('new-channel').value = (trigger.channel || 0) + 1;
+    document.getElementById('new-track-index').value = (trigger.trackIndex !== undefined && trigger.trackIndex !== null) ? trigger.trackIndex : '';
 
     // Trigger change event to set input states (disabled/enabled)
     document.getElementById('new-type').dispatchEvent(new Event('change'));
@@ -208,6 +213,7 @@ function cancelEdit() {
     document.getElementById('new-value').value = '';
     document.getElementById('new-velocity').value = '127';
     document.getElementById('new-channel').value = '1';
+    document.getElementById('new-track-index').value = '';
 
     document.getElementById('btn-add').innerText = 'Add Trigger +';
     document.getElementById('btn-cancel').style.display = 'none';

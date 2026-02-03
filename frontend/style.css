@@ -762,3 +762,156 @@ input[type=range].fader-input::-moz-range-thumb {
     box-shadow: 0 0 10px var(--accent-teal);
     transition: width 0.1s ease-out;
 }
+
+/* =============================================
+   POP-OUT GRID LAYOUT SYSTEM
+   ============================================= */
+
+/* Pop-out Mode Detection */
+.app.is-popout {
+    max-width: 100%;
+    padding: 15px;
+}
+
+.app.is-popout h1,
+.app.is-popout .status {
+    display: none;
+}
+
+.app.is-popout .triggers h3 {
+    display: none;
+}
+
+.app.is-popout .controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 100;
+    gap: 8px;
+    margin: 0;
+}
+
+.app.is-popout .controls .btn {
+    padding: 8px 12px;
+    font-size: 0.7rem;
+}
+
+/* Grid Container for Pop-out */
+.app.is-popout #dynamic-triggers {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: 100px;
+    gap: 10px;
+    padding: 50px 0 10px 0;
+}
+
+/* Grid Spanning based on data attributes */
+.pad[data-grid-w="2"] {
+    grid-column: span 2;
+}
+
+.pad[data-grid-w="3"] {
+    grid-column: span 3;
+}
+
+.pad[data-grid-w="4"] {
+    grid-column: span 4;
+}
+
+.pad[data-grid-h="2"] {
+    grid-row: span 2;
+}
+
+.pad[data-grid-h="3"] {
+    grid-row: span 3;
+}
+
+/* Default sizes by type in pop-out */
+.app.is-popout .type-fader {
+    grid-row: span 2;
+}
+
+.app.is-popout .type-xy {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+
+/* 1x1 defaults - no extra sizing needed for knob, btn, toggle */
+
+/* Drag & Drop Styles */
+.pad.is-dragging {
+    opacity: 0.5;
+    transform: scale(1.05);
+    z-index: 1000;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 30px var(--primary-color);
+}
+
+.pad.drag-over {
+    border: 2px dashed var(--accent-teal) !important;
+    background: rgba(3, 218, 198, 0.1) !important;
+}
+
+/* Edit Mode Indicator */
+.app.is-edit-mode .pad {
+    cursor: grab;
+}
+
+.app.is-edit-mode .pad:active {
+    cursor: grabbing;
+}
+
+.app.is-edit-mode .pad::after {
+    content: "⋮⋮";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* Edit Mode Toggle Button */
+.edit-mode-btn {
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    background: var(--glass-surface);
+    border: var(--glass-border);
+    color: var(--text-primary);
+    padding: 10px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    z-index: 200;
+    backdrop-filter: var(--glass-blur);
+    transition: all 0.2s;
+}
+
+.edit-mode-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.edit-mode-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Responsive Grid Columns */
+@media (max-width: 600px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1000px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(8, 1fr);
+    }
+}
+
+@media (min-width: 1400px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(12, 1fr);
+    }
+}

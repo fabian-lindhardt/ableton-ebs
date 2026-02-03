@@ -742,3 +742,164 @@ function makeEditable(el, getVal, onCommit) {
         input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); ev.stopPropagation(); });
     });
 }
+
+// ==================================================
+// POP-OUT GRID LAYOUT SYSTEM 🎛️📐
+// ==================================================
+
+const POPOUT_WIDTH_THRESHOLD = 450; // Width above which we consider "pop-out"
+let isPopoutMode = false;
+let isEditMode = false;
+let draggedElement = null;
+
+// Detect Pop-out Mode
+function detectPopoutMode() {
+    const wasPopout = isPopoutMode;
+    isPopoutMode = window.innerWidth > POPOUT_WIDTH_THRESHOLD || window.parent === window;
+
+    if (isPopoutMode !== wasPopout) {
+        document.getElementById('app').classList.toggle('is-popout', isPopoutMode);
+        console.log(`[Layout] Mode: ${isPopoutMode ? 'Pop-out' : 'Panel'}`);
+
+        if (isPopoutMode) {
+            injectEditModeButton();
+            loadLayoutOrder();
+        }
+    }
+}
+
+// Inject Edit Mode Toggle Button
+function injectEditModeButton() {
+    if (document.getElementById('btn-edit-mode')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btn-edit-mode';
+    btn.className = 'edit-mode-btn';
+    btn.innerHTML = '✏️ Edit Layout';
+    btn.addEventListener('click', toggleEditMode);
+    document.body.appendChild(btn);
+}
+
+// Toggle Edit Mode
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    document.getElementById('app').classList.toggle('is-edit-mode', isEditMode);
+    document.getElementById('btn-edit-mode').classList.toggle('active', isEditMode);
+    document.getElementById('btn-edit-mode').innerHTML = isEditMode ? '✓ Done' : '✏️ Edit Layout';
+
+    if (isEditMode) {
+        enableDragDrop();
+    } else {
+        disableDragDrop();
+        saveLayoutOrder();
+    }
+}
+
+// Enable Drag & Drop
+function enableDragDrop() {
+    const pads = document.querySelectorAll('#dynamic-triggers .pad');
+    pads.forEach(pad => {
+        pad.setAttribute('draggable', 'true');
+        pad.addEventListener('dragstart', handleDragStart);
+        pad.addEventListener('dragend', handleDragEnd);
+        pad.addEventListener('dragover', handleDragOver);
+        pad.addEventListener('dragenter', handleDragEnter);
+        pad.addEventListener('dragleave', handleDragLeave);
+        pad.addEventListener('drop', handleDrop);
+    });
+}
+
+// Disable Drag & Drop
+function disableDragDrop() {
+    const pads = document.querySelectorAll('#dynamic-triggers .pad');
+    pads.forEach(pad => {
+        pad.removeAttribute('draggable');
+    });
+}
+
+// Drag Handlers
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.id);
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('is-dragging');
+    document.querySelectorAll('.pad.drag-over').forEach(el => el.classList.remove('drag-over'));
+    draggedElement = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+    if (this !== draggedElement) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+
+    if (draggedElement && this !== draggedElement) {
+        const container = document.getElementById('dynamic-triggers');
+        const allPads = Array.from(container.children);
+        const draggedIndex = allPads.indexOf(draggedElement);
+        const targetIndex = allPads.indexOf(this);
+
+        if (draggedIndex < targetIndex) {
+            container.insertBefore(draggedElement, this.nextSibling);
+        } else {
+            container.insertBefore(draggedElement, this);
+        }
+
+        console.log(`[Layout] Moved trigger ${draggedElement.dataset.id} to position ${targetIndex}`);
+    }
+}
+
+// Save Layout Order to localStorage
+function saveLayoutOrder() {
+    const pads = document.querySelectorAll('#dynamic-triggers .pad');
+    const order = Array.from(pads).map(pad => pad.dataset.id);
+    localStorage.setItem('trigger_layout_order', JSON.stringify(order));
+    console.log('[Layout] Saved order:', order);
+}
+
+// Load Layout Order from localStorage
+function loadLayoutOrder() {
+    const savedOrder = localStorage.getItem('trigger_layout_order');
+    if (!savedOrder) return;
+
+    try {
+        const order = JSON.parse(savedOrder);
+        const container = document.getElementById('dynamic-triggers');
+        const pads = Array.from(container.querySelectorAll('.pad'));
+
+        order.forEach(id => {
+            const pad = pads.find(p => p.dataset.id === id);
+            if (pad) {
+                container.appendChild(pad); // Move to end in order
+            }
+        });
+
+        console.log('[Layout] Loaded saved order');
+    } catch (e) {
+        console.warn('[Layout] Failed to load order:', e);
+    }
+}
+
+// Initialize on load
+window.addEventListener('resize', detectPopoutMode);
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(detectPopoutMode, 500); // Delay to ensure DOM is ready
+});
+

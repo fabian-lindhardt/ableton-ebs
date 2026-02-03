@@ -72,13 +72,31 @@ wss.on('connection', (ws) => {
                 });
             }
 
-            // 3. Metadata from Bridge (Track names/colors)
+            // 3. Metadata from Bridge (Track names/colors) - DELTA MERGE
             if (data.type === 'metadata') {
-                console.log('Received Metadata Update:', data.data);
+                console.log('[Metadata] Received:', JSON.stringify(data.data).substring(0, 100) + '...');
 
-                // Update Cache (New Format: { tracks: [], scenes: [] })
+                // Delta Merge: Update individual tracks/scenes instead of overwriting
                 if (data.data) {
-                    metadataCache = data.data;
+                    // Merge Tracks
+                    if (data.data.tracks && data.data.tracks.length > 0) {
+                        data.data.tracks.forEach(track => {
+                            // Filter invalid tracks
+                            if (track.index === undefined || track.name === undefined) return;
+                            const idx = metadataCache.tracks.findIndex(t => t.index === track.index);
+                            if (idx !== -1) {
+                                metadataCache.tracks[idx] = track;
+                            } else {
+                                metadataCache.tracks.push(track);
+                            }
+                        });
+                        // Keep sorted
+                        metadataCache.tracks.sort((a, b) => a.index - b.index);
+                    }
+                    // Replace Scenes (scenes are typically sent as a full set)
+                    if (data.data.scenes && data.data.scenes.length > 0) {
+                        metadataCache.scenes = data.data.scenes.filter(s => s.name !== undefined);
+                    }
                 }
 
                 // Broadcast

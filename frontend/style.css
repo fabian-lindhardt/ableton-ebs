@@ -796,6 +796,50 @@ input[type=range].fader-input::-moz-range-thumb {
     font-size: 0.7rem;
 }
 
+/* Panel Mode: Hide Triggers & Controls */
+.app:not(.is-popout) .triggers,
+.app:not(.is-popout) .controls,
+.app:not(.is-popout) .status,
+.app:not(.is-popout) h1 {
+    display: none !important;
+}
+
+/* Panel Notice (Only visible in non-popout) */
+.panel-notice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    text-align: center;
+    color: var(--text-muted);
+    animation: fadeIn 0.5s ease-out;
+}
+
+.app.is-popout .notice-icon,
+.app.is-popout .panel-notice {
+    display: none;
+}
+
+.notice-icon {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    opacity: 0.8;
+    filter: drop-shadow(0 0 10px var(--accent-teal));
+}
+
+.panel-notice h2 {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--primary-color);
+    margin-bottom: 15px;
+}
+
+.panel-notice p {
+    font-size: 0.9rem;
+    max-width: 200px;
+    line-height: 1.5;
+}
+
 /* Grid Container for Pop-out */
 /* Grid Container for Pop-out (Controller Builder) */
 .app.is-popout #dynamic-triggers {
@@ -808,6 +852,20 @@ input[type=range].fader-input::-moz-range-thumb {
     padding: 50px 0 20px 0;
     width: 100%;
     margin: 0 auto;
+}
+
+/* Responsive Grid Columns */
+@media (max-width: 600px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(6, 1fr);
+        /* Mobile popout fallback */
+    }
+}
+
+@media (min-width: 1000px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(12, 1fr);
+    }
 }
 
 /* Grid Positioning (Applied via JS style) */

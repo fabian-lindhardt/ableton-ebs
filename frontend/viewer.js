@@ -767,6 +767,16 @@ function detectPopoutMode() {
                 injectEditModeButton();
             }
             loadLayoutOrder();
+
+            // Auto-Resize Pop-out Window (Best Effort)
+            try {
+                if (window.outerWidth < 1000) {
+                    window.resizeTo(1280, 800);
+                    console.log('[Layout] Attempted auto-resize to 1280x800');
+                }
+            } catch (e) {
+                console.warn('[Layout] Auto-resize blocked by browser:', e);
+            }
         }
     }
 }

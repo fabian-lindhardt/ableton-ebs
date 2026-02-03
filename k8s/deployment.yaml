@@ -29,6 +29,8 @@ spec:
         # Secrets should ideally be mounted from a k8s Secret, but for simplicity here:
         - name: TWITCH_CLIENT_ID
           value: "61aryh4yx4v94a1309tk5dqz8kyrvp"
+        - name: TWITCH_CHANNEL_ID
+          value: "407780947"
         - name: TWITCH_SECRET
           valueFrom:
             secretKeyRef:

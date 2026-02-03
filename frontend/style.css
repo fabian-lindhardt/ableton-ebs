@@ -594,13 +594,7 @@ input[type=range].fader-input::-moz-range-thumb {
     z-index: 1;
 }
 
-/* Locked Overlay */
-.is-locked .controls,
-.is-locked #dynamic-triggers {
-    opacity: 0.3;
-    pointer-events: none;
-    transition: all 0.5s ease;
-}
+/* Locked Overlay Removed - Preview Mode Active */
 
 #audio-container {
     position: absolute;

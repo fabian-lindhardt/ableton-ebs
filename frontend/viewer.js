@@ -762,13 +762,22 @@ function detectPopoutMode() {
         console.log(`[Layout] Mode: ${isPopoutMode ? 'Pop-out' : 'Panel'}`);
 
         if (isPopoutMode) {
-            injectEditModeButton();
+            // Only broadcaster can edit layout
+            if (isBroadcaster()) {
+                injectEditModeButton();
+            }
             loadLayoutOrder();
         }
     }
 }
 
-// Inject Edit Mode Toggle Button
+// Check if current user is broadcaster
+function isBroadcaster() {
+    if (!twitch) return true; // Dev mode
+    return twitch.viewer && twitch.viewer.role === 'broadcaster';
+}
+
+// Inject Edit Mode Toggle Button (Broadcaster Only)
 function injectEditModeButton() {
     if (document.getElementById('btn-edit-mode')) return;
 
@@ -866,35 +875,68 @@ function handleDrop(e) {
     }
 }
 
-// Save Layout Order to localStorage
+// Save Layout Order to Twitch Broadcaster Config
 function saveLayoutOrder() {
     const pads = document.querySelectorAll('#dynamic-triggers .pad');
     const order = Array.from(pads).map(pad => pad.dataset.id);
-    localStorage.setItem('trigger_layout_order', JSON.stringify(order));
-    console.log('[Layout] Saved order:', order);
+
+    if (twitch && twitch.configuration && twitch.configuration.set) {
+        // Get existing config and add layout order
+        let config = {};
+        try {
+            if (twitch.configuration.broadcaster && twitch.configuration.broadcaster.content) {
+                config = JSON.parse(twitch.configuration.broadcaster.content);
+            }
+        } catch (e) { }
+
+        config.layoutOrder = order;
+
+        twitch.configuration.set('broadcaster', '1.0', JSON.stringify(config));
+        console.log('[Layout] Saved to Broadcaster Config:', order);
+    } else {
+        // Dev mode fallback: localStorage
+        localStorage.setItem('trigger_layout_order', JSON.stringify(order));
+        console.log('[Layout] Saved to localStorage (dev mode):', order);
+    }
 }
 
-// Load Layout Order from localStorage
+// Load Layout Order from Twitch Broadcaster Config
 function loadLayoutOrder() {
-    const savedOrder = localStorage.getItem('trigger_layout_order');
-    if (!savedOrder) return;
+    let order = null;
 
-    try {
-        const order = JSON.parse(savedOrder);
-        const container = document.getElementById('dynamic-triggers');
-        const pads = Array.from(container.querySelectorAll('.pad'));
-
-        order.forEach(id => {
-            const pad = pads.find(p => p.dataset.id === id);
-            if (pad) {
-                container.appendChild(pad); // Move to end in order
+    // Try Twitch config first
+    if (twitch && twitch.configuration && twitch.configuration.broadcaster) {
+        try {
+            const config = JSON.parse(twitch.configuration.broadcaster.content);
+            if (config.layoutOrder) {
+                order = config.layoutOrder;
+                console.log('[Layout] Loaded from Broadcaster Config');
             }
-        });
-
-        console.log('[Layout] Loaded saved order');
-    } catch (e) {
-        console.warn('[Layout] Failed to load order:', e);
+        } catch (e) { }
     }
+
+    // Dev mode fallback: localStorage  
+    if (!order) {
+        const savedOrder = localStorage.getItem('trigger_layout_order');
+        if (savedOrder) {
+            try {
+                order = JSON.parse(savedOrder);
+                console.log('[Layout] Loaded from localStorage (dev mode)');
+            } catch (e) { }
+        }
+    }
+
+    if (!order) return;
+
+    const container = document.getElementById('dynamic-triggers');
+    const pads = Array.from(container.querySelectorAll('.pad'));
+
+    order.forEach(id => {
+        const pad = pads.find(p => p.dataset.id === id);
+        if (pad) {
+            container.appendChild(pad); // Move to end in order
+        }
+    });
 }
 
 // Initialize on load

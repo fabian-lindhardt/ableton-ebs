@@ -737,3 +737,28 @@ input[type=range].fader-input::-moz-range-thumb {
         transform: translate(-50%, -50%);
     }
 }
+
+#vdo-meter-container {
+    width: 60px;
+    height: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    margin: 0 10px;
+    overflow: hidden;
+    display: none;
+    /* Only show when VIP */
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.is-vip #vdo-meter-container {
+    display: block;
+}
+
+#vdo-meter-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-teal), #fff);
+    box-shadow: 0 0 10px var(--accent-teal);
+    transition: width 0.1s ease-out;
+}

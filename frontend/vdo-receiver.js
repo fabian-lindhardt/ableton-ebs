@@ -107,6 +107,7 @@ class VdoReceiver {
                     this.audioElement.play().catch(err => {
                         console.warn("[VDO] Autoplay failed - user must click Join Audio again:", err);
                     });
+                    this.setupAudioAnalysis(event.streams[0]);
                 };
             }
         };
@@ -117,6 +118,40 @@ class VdoReceiver {
                 console.error("[VDO] WebRTC Connection Failed. Check STUN/TURN servers.");
             }
         };
+    }
+
+    setupAudioAnalysis(stream) {
+        console.log("[VDO] Setting up audio analysis...");
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            const meterBar = document.getElementById('vdo-meter-bar');
+
+            const update = () => {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+                const percent = Math.min(100, (average / 64) * 100); // Scaled for better visibility
+                if (meterBar) {
+                    meterBar.style.width = percent + '%';
+                    if (percent > 90) meterBar.style.background = 'var(--accent-pink)';
+                    else meterBar.style.background = 'linear-gradient(90deg, var(--accent-teal), #fff)';
+                }
+                requestAnimationFrame(update);
+            };
+            update();
+        } catch (e) {
+            console.warn("[VDO] Audio analysis failed:", e);
+        }
     }
 }
 

@@ -28,21 +28,27 @@ class VdoReceiver {
         const wsUrl = `wss://${this.signalingUrl}/socket.io/?EIO=4&transport=websocket`;
         this.ws = new WebSocket(wsUrl);
 
-        this.ws.onopen = () => {
-            console.log("[VDO] Signaling connected.");
-            this.emit('join', this.roomID);
-        };
-
         this.ws.onmessage = (e) => {
             const data = e.data;
-            if (data === '2') { this.ws.send('3'); return; } // Ping/Pong
-
-            if (data.startsWith('42')) {
+            if (data.startsWith('0')) { // Engine.io OPEN
+                this.ws.send('40'); // Socket.io Connect (Root Namespace)
+            } else if (data === '2') { // Ping
+                this.ws.send('3'); // Pong
+            } else if (data.startsWith('40')) { // Socket.io CONNECTED
+                console.log("[VDO] Protocol handshake complete. Joining room...");
+                this.emit('join', this.roomID);
+            } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
-                    const [event, payload] = JSON.parse(data.substring(2));
+                    const parsed = JSON.parse(data.substring(2));
+                    const event = parsed[0];
+                    const payload = parsed[1];
                     if (event === 'signal') this.handleSignal(payload.msg);
-                } catch (err) { console.warn("[VDO] Failed to parse signaling message:", err); }
+                } catch (err) { console.warn("[VDO] Failed to parse message:", err); }
             }
+        };
+
+        this.ws.onopen = () => {
+            console.log("[VDO] WebSocket connected. Handshaking...");
         };
 
         this.ws.onerror = (e) => console.error("[VDO] Signaling error:", e);

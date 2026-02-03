@@ -667,7 +667,7 @@ function renderGridMatrix(metadata) {
     if (pageEl) {
         const start = currentGridOffset + 1;
         const end = Math.min(currentGridOffset + 8, activeData.tracks.length);
-        pageEl.innerText = `Tracks ${start}-${end}`;
+        pageEl.innerText = `Tracks ${start}-${end} / ${activeData.tracks.length}`;
     }
 
     // 1. Render SLICE of Tracks (8 at a time)
@@ -683,8 +683,8 @@ function renderGridMatrix(metadata) {
         header.innerText = track.name;
         col.appendChild(header);
 
-        // Render slots
-        for (let i = 0; i < 12; i++) {
+        // Render slots (up to 16 now)
+        for (let i = 0; i < 16; i++) {
             const clip = (track.clips || []).find(c => c.index === i);
             const pad = document.createElement('div');
             pad.className = 'clip-pad';
@@ -716,13 +716,20 @@ function renderGridMatrix(metadata) {
         masterHeader.style.setProperty('--item-color', '#00ffd2');
         masterCol.appendChild(masterHeader);
 
-        activeData.scenes.forEach(scene => {
+        // Scan up to 16 scene pads
+        for (let i = 0; i < 16; i++) {
+            const scene = activeData.scenes[i];
             const pad = document.createElement('div');
             pad.className = 'clip-pad scene-pad';
-            pad.innerText = scene.name || `Scene ${scene.index + 1}`;
-            pad.onclick = () => sendGridAction('launch_scene', { sceneIndex: scene.index });
+
+            if (scene) {
+                pad.innerText = scene.name || `Scene ${scene.index + 1}`;
+                pad.onclick = () => sendGridAction('launch_scene', { sceneIndex: scene.index });
+            } else {
+                pad.innerText = '-';
+            }
             masterCol.appendChild(pad);
-        });
+        }
         grid.appendChild(masterCol);
     }
 }

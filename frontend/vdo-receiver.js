@@ -1,6 +1,7 @@
 /**
  * Minimal VDO.Ninja WebRTC Receiver for Twitch Extensions
  * Bypasses iFrame CSP restrictions by using direct WebRTC.
+ * Version 7: "Kitchen Sink" Join Sequence & Role Diagnostics
  */
 
 class VdoReceiver {
@@ -35,7 +36,7 @@ class VdoReceiver {
             const now = new Date().toLocaleTimeString();
             const data = e.data;
 
-            // Log raw traffic for handshake debugging
+            // Log ALL raw traffic for handshake debugging
             if (!data.startsWith('42')) {
                 console.log(`[VDO-Raw-In] [${now}]`, data);
             }
@@ -45,17 +46,31 @@ class VdoReceiver {
             } else if (data === '2') { // Ping
                 this.ws.send('3'); // Pong
             } else if (data.startsWith('40')) { // Socket.io CONNECTED
-                console.log("[VDO] Connected! Handshaking as Guest/Viewer...");
+                console.log("[VDO] Connected! Executing 'Kitchen Sink' Join Sequence...");
                 const jid = "vdo_" + Math.random().toString(36).substring(7);
+                const uid = Date.now().toString(36); // Unique ID for some protocol variants
 
-                // Variation 1: VDO.Ninja Specific "join-room" with view ID and jid
-                this.emit('join-room', { room: this.roomID, view: this.roomID, jid: jid, role: 'viewer' });
+                // Variation 1: VDO.Ninja Specific "join-room" (Object)
+                this.emit('join-room', { room: this.roomID, view: this.roomID, jid: jid, id: uid, role: 'viewer' });
 
-                // Variation 2: Standard "join" object
-                setTimeout(() => this.emit('join', { room: this.roomID, view: this.roomID, jid: jid }), 500);
+                // Variation 2: Pure "join" (String) - Most common for older protocols
+                setTimeout(() => this.emit('join', this.roomID), 200);
 
-                // Variation 3: Explicit "request-offer" (Directly ask the host)
-                setTimeout(() => this.emit('request-offer', { room: this.roomID, view: this.roomID }), 1000);
+                // Variation 3: Pure "join" (Object)
+                setTimeout(() => this.emit('join', { room: this.roomID, jid: jid, role: 'viewer' }), 400);
+
+                // Variation 4: "room" (String) - Used in some Electron implementations
+                setTimeout(() => this.emit('room', this.roomID), 600);
+
+                // Variation 5: "check-in" (Common for tracker-based VDO)
+                setTimeout(() => this.emit('check-in', { room: this.roomID, id: jid }), 800);
+
+                // Variation 6: "request-offer" (Force a prompt)
+                setTimeout(() => this.emit('request-offer', { room: this.roomID, view: this.roomID }), 1200);
+
+                // Variation 7: "add-peer" (Used in some mesh variants)
+                setTimeout(() => this.emit('add-peer', { room: this.roomID, role: 'viewer' }), 1500);
+
             } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
                     const parsed = JSON.parse(data.substring(2));
@@ -64,11 +79,10 @@ class VdoReceiver {
                     console.log(`[VDO-Event-In] [${now}] ${event}:`, payload);
 
                     if (event === 'signal') {
-                        // Handle both {msg: {type: offer...}} and {type: offer...}
                         const signalMsg = (payload && payload.msg) ? payload.msg : payload;
                         if (signalMsg) this.handleSignal(signalMsg);
-                    } else if (event === 'ready' || event === 'peer-joined') {
-                        console.log("[VDO] Peer ready/joined, forcing offer request...");
+                    } else if (event === 'ready' || event === 'peer-joined' || event === 'joined') {
+                        console.log("[VDO] Peer/Room confirmed ready! Requesting offer...");
                         this.emit('request-offer', { room: this.roomID, view: this.roomID });
                     }
                 } catch (err) {
@@ -89,12 +103,11 @@ class VdoReceiver {
             const now = new Date().toLocaleTimeString();
             console.log(`[VDO-Diag] [${now}] WS: ${wsState}, PC: ${pcState}, Track: ${hasTrack}`);
 
-            // Auto-resume contexts and re-join if stuck/silent
-            if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
             if (wsState === 'OPEN' && pcState === 'new') {
-                console.log("[VDO-Diag] Still 'new' - re-sending request-offer...");
+                console.log("[VDO-Diag] Still 'new' - re-prompting host for offer...");
                 this.emit('request-offer', { room: this.roomID, view: this.roomID });
             }
+            if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
         }, 10000);
     }
 
@@ -158,7 +171,7 @@ class VdoReceiver {
         this.pc.onconnectionstatechange = () => {
             console.log("[VDO-PC-State]", this.pc.connectionState);
             if (this.pc.connectionState === 'failed') {
-                console.error("[VDO] WebRTC Connection Failed. Check STUN/TURN servers.");
+                console.error("[VDO] WebRTC Connection Failed.");
             }
         };
     }
@@ -204,5 +217,4 @@ class VdoReceiver {
     }
 }
 
-// Global instance for viewer.js to use
 window.vdoReceiver = null;

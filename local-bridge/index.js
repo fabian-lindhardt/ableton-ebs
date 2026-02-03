@@ -94,10 +94,21 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
         udpServer.on('message', (msg, rinfo) => {
             try {
                 let raw = msg.toString().trim();
+
                 // Max sometimes prefixes with "payload " if it's sent as a message
                 if (raw.startsWith('payload ')) {
                     raw = raw.substring(8);
                 }
+
+                // --- ROBUST JSON EXTRACTION ---
+                // Find first '{' and last '}' to handle potential null-terminators or garbage
+                const firstBrace = raw.indexOf('{');
+                const lastBrace = raw.lastIndexOf('}');
+
+                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                    raw = raw.substring(firstBrace, lastBrace + 1);
+                }
+
                 const data = JSON.parse(raw);
                 if (data.type === 'metadata') {
                     // Normalize data structure (handle both 'data' and 'payload' keys)

@@ -22,10 +22,14 @@ function scan() {
     for (var i = 0; i < trackCount; i++) {
         var track = new LiveAPI("live_set tracks " + i);
         if (track) {
-            var name = track.get("name");
-            var color = track.get("color");
+            var rawName = track.get("name");
+            var name = Array.isArray(rawName) ? rawName.join(" ") : rawName;
+
+            var rawColor = track.get("color");
+            var colorVal = Array.isArray(rawColor) ? rawColor[0] : rawColor;
+
             // Convert Ableton color (integer) to Hex
-            var hexColor = "#" + ("000000" + color.toString(16)).slice(-6);
+            var hexColor = "#" + ("000000" + parseInt(colorVal).toString(16)).slice(-6);
 
             currentData.push({
                 index: i,

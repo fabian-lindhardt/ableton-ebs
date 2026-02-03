@@ -584,7 +584,7 @@ function startAudioStream() {
     const domain = (vdoId && vdoId.includes('.')) ? vdoId.split('/')[2] || vdoId : "vdo.flairtec.de";
     const room = vdoId.includes('view=') ? vdoId.split('view=')[1].split('&')[0] : vdoId;
 
-    console.log("[VDO] Initializing direct WebRTC receiver for:", domain, "Room:", room);
+    console.log("[SolutionC-v16] Initializing direct WebRTC receiver for:", domain, "Room:", room);
 
     // Use the pre-loaded receiver instance (Solution C)
     if (window.vdoReceiver) {
@@ -606,10 +606,10 @@ function updateTimerDisplay() {
 const joinAudioBtn = document.getElementById('btn-join-audio');
 if (joinAudioBtn) {
     joinAudioBtn.addEventListener('click', () => {
-        console.log("[VDO] Join Audio button clicked. Ensuring receiver is active...");
+        console.log("[SolutionC-v16] Join Audio button clicked. Ensuring receiver is active...");
         if (window.vdoReceiver) {
             // Re-trigger join if needed or handle audio context resume
-            console.log("[VDO] Signaling ready for Solution C...");
+            console.log("[SolutionC-v16] Signaling ready...");
             if (window.vdoReceiver.ws && window.vdoReceiver.ws.readyState === 1) {
                 window.vdoReceiver.send({
                     type: 'viewer-ready',

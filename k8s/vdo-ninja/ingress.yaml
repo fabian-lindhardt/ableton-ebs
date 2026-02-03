@@ -24,7 +24,15 @@ spec:
                 name: vdo-ninja-frontend
                 port:
                   number: 80
-          # Signaling (Websocket)
+          # Signaling (Raw Websocket)
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: vdo-ninja-signaling
+                port:
+                  number: 3000
+          # Legacy Signaling (Socket.io - deprecated)
           - path: /socket.io
             pathType: Prefix
             backend:

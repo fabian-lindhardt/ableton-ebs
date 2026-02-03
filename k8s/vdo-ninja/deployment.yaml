@@ -62,42 +62,34 @@ spec:
             - "-c"
             - |
               npm init -y && \
-              npm install express socket.io && \
+              npm install express ws && \
               cat <<'EOF' > server.js
               "use strict";
               const http = require("http");
               const express = require("express");
+              const WebSocket = require("ws");
               const app = express();
               const server = http.createServer(app);
-              const io = require("socket.io")(server, {
-                cors: { origin: "*", methods: ["GET", "POST"] }
-              });
-              io.on("connection", (socket) => {
-                console.log("New connection:", socket.id);
-                socket.onAny((event, payload) => {
-                  // 1. Room Management
-                  if (event === 'join' || event === 'join-room' || event === 'room') {
-                    const room = (typeof payload === 'string') ? payload : (payload.room || payload.view || payload.id);
-                    if (room) {
-                      socket.join(room);
-                      console.log(`Socket ${socket.id} joined room: ${room}`);
-                    }
-                  }
-                  // 2. Broadcast/Relay everything else
-                  // We add 'from' so recipients know who sent it
-                  const data = (payload && typeof payload === 'object') ? { ...payload, from: socket.id } : payload;
-                  
-                  if (payload && (payload.room || payload.view)) {
-                    const room = payload.room || payload.view;
-                    socket.to(room).emit(event, data);
-                  } else {
-                    socket.broadcast.emit(event, data);
-                  }
+              const wss = new WebSocket.Server({ server });
+
+              wss.on("connection", (ws) => {
+                console.log("New raw WebSocket connection");
+                ws.on("message", (data) => {
+                  try {
+                    // Transparent broadcast relay
+                    // VDO.Ninja uses raw JSON strings
+                    wss.clients.forEach((client) => {
+                      if (client !== ws && client.readyState === WebSocket.OPEN) {
+                        client.send(data);
+                      }
+                    });
+                  } catch (e) { console.error("Relay Error:", e); }
                 });
-                socket.on("disconnect", () => console.log("Disconnected:", socket.id));
+                ws.on("close", () => console.log("Connection closed"));
               });
+
               const port = process.env.PORT || 3000;
-              server.listen(port, () => { console.log("Signaling server (Socket.io) started on port " + port); });
+              server.listen(port, () => { console.log("Raw WebSocket Relay started on port " + port); });
               EOF
               node server.js
           env:

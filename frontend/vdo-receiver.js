@@ -1,8 +1,8 @@
 /**
  * Minimal VDO.Ninja WebRTC Receiver for Twitch Extensions
  * Bypasses iFrame CSP restrictions by using direct WebRTC.
- * Version 10: "Universal Handshake" with Aggressive Relay & DISTINCT LOGGING.
- * 🚀 Fixed to support custom Socket.io relay found in k8s manifests.
+ * Version 11: "Raw Ninja" Protocol over Native WebSockets.
+ * 🚀 Protocol-matched for VDO.Ninja native host-side signaling.
  */
 
 class VdoReceiver {
@@ -12,107 +12,78 @@ class VdoReceiver {
         this.pc = null;
         this.audioElement = null;
         this.ws = null;
-        this.iceServers = [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ];
+        this.iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
     }
 
     async start(targetElementId) {
-        console.log("[VDO-V10-ULTRA] Starting Universal Receiver for room:", this.roomID);
+        console.log("[VDO-V11] Starting Raw-WS Receiver for room:", this.roomID);
         this.audioElement = document.getElementById(targetElementId);
         await this.setupPeerConnection();
 
-        // Setup Signaling (Minimal Socket.io emulation)
-        const wsUrl = `wss://${this.signalingUrl}/socket.io/?EIO=4&transport=websocket`;
+        // Connect via Raw WebSocket (Bypasses Socket.io)
+        const wsUrl = `wss://${this.signalingUrl}/ws`;
         this.ws = new WebSocket(wsUrl);
+
+        this.ws.onopen = () => {
+            console.log("[VDO-V11] WebSocket Connected. Joining Room...");
+            // VDO.Ninja Native Join Packet
+            this.send({ room: this.roomID, request: "join" });
+
+            // Force offer request immediately
+            console.log("[VDO-V11] Prompting host for offer...");
+            this.send({ room: this.roomID, msg: { type: "request-offer" } });
+        };
 
         this.ws.onmessage = (e) => {
             const now = new Date().toLocaleTimeString();
-            const data = e.data;
-            if (!data.startsWith('42')) console.log(`[VDO-Raw-In] [${now}]`, data);
+            try {
+                const data = JSON.parse(e.data);
+                console.log(`[VDO-V11-In] [${now}]`, data);
 
-            if (data.startsWith('0')) {
-                this.ws.send('40');
-            } else if (data === '2') {
-                this.ws.send('3');
-            } else if (data.startsWith('40')) {
-                console.log("[VDO-V10-ULTRA] Connected! Handshaking with Universal Relay Protocol...");
-
-                // Variation 1: Simple join for our upgraded relay
-                this.emit('join', this.roomID);
-
-                // Variation 2: VDO-Native join-room
-                setTimeout(() => {
-                    this.emit('join-room', {
-                        room: this.roomID,
-                        view: this.roomID,
-                        role: 'viewer',
-                        jid: 'vdo_' + Math.random().toString(36).substring(7)
-                    });
-                }, 500);
-
-                // Variation 3: Explicit 'request-offer' signal
-                setTimeout(() => {
-                    console.log("[VDO-V10-ULTRA] Broadcasting request-offer...");
-                    this.emit('signal', { type: 'request-offer', room: this.roomID });
-                }, 1000);
-
-            } else if (data.startsWith('42')) {
-                try {
-                    const parsed = JSON.parse(data.substring(2));
-                    const event = parsed[0];
-                    const payload = parsed[1];
-                    console.log(`[VDO-Event-In] [${now}] ${event}:`, payload);
-
-                    if (event === 'signal') {
-                        const signalMsg = (payload && payload.msg) ? payload.msg : payload;
-                        if (signalMsg && signalMsg.type) this.handleSignal(signalMsg, payload.from);
-                    } else if (event === 'ready' || event === 'peer-joined' || event === 'joined') {
-                        console.log("[VDO-V10-ULTRA] Peer/Room confirmed! Forcing offer request...");
-                        this.emit('signal', { type: 'request-offer', room: this.roomID });
-                    }
-                } catch (err) { }
+                // Handle VDO.Ninja Signal Format
+                if (data.msg) {
+                    this.handleSignal(data.msg, data.from);
+                } else if (data.type === 'offer' || data.type === 'candidate') {
+                    this.handleSignal(data, data.from);
+                }
+            } catch (err) {
+                console.warn("[VDO-V11] Received non-JSON or invalid data:", e.data);
             }
         };
 
-        this.ws.onopen = () => console.log("[VDO-V10-ULTRA] WebSocket connected. Handshaking...");
-        this.ws.onclose = () => console.warn("[VDO-V10-ULTRA] Signaling closed.");
+        this.ws.onerror = (e) => console.error("[VDO-V11] WS Error:", e);
+        this.ws.onclose = () => console.warn("[VDO-V11] WS Closed.");
 
+        // Diagnostic Heartbeat
         setInterval(() => {
-            const wsState = this.ws ? (['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.ws.readyState]) : 'NONE';
             const pcState = this.pc ? this.pc.connectionState : 'NONE';
-            const hasTrack = !!(this.audioElement && this.audioElement.srcObject);
-            const now = new Date().toLocaleTimeString();
-            console.log(`[VDO-Diag-V10] [${now}] WS: ${wsState}, PC: ${pcState}, Track: ${hasTrack}`);
-
-            if (wsState === 'OPEN' && pcState === 'new') {
-                this.emit('signal', { type: 'request-offer', room: this.roomID });
+            if (this.ws.readyState === WebSocket.OPEN && pcState === 'new') {
+                console.log("[VDO-V11-Diag] PC Still 'new' - re-sending join...");
+                this.send({ room: this.roomID, request: "join" });
+                this.send({ room: this.roomID, msg: { type: "request-offer" } });
             }
-            if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
         }, 10000);
     }
 
-    emit(event, data) {
+    send(obj) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send('42' + JSON.stringify([event, data]));
+            console.log("[VDO-V11-Out] Sending:", obj);
+            this.ws.send(JSON.stringify(obj));
         }
     }
 
     async handleSignal(msg, fromSender) {
         if (!msg || !msg.type) return;
-        console.log(`[VDO-Signal-Handle] Type: ${msg.type} From: ${fromSender || 'unknown'}`);
+        console.log(`[VDO-V11-Signal] Type: ${msg.type} From: ${fromSender || 'unknown'}`);
 
         if (msg.type === 'offer') {
-            console.log("[VDO-V10-ULTRA] Received offer, creating answer...");
+            console.log("[VDO-V11] Received offer, creating answer...");
             await this.pc.setRemoteDescription(new RTCSessionDescription(msg));
             const answer = await this.pc.createAnswer();
             await this.pc.setLocalDescription(answer);
-            const reply = { room: this.roomID, msg: answer };
-            if (fromSender) reply.to = fromSender;
-            this.emit('signal', reply);
-        } else if (msg.candidate || msg.type === 'candidate') {
-            try { this.pc.addIceCandidate(new RTCIceCandidate(msg.candidate || msg)); } catch (e) { }
+            this.send({ room: this.roomID, msg: answer, to: fromSender });
+        } else if (msg.type === 'candidate' || msg.candidate) {
+            try { await this.pc.addIceCandidate(new RTCIceCandidate(msg.candidate || msg)); } catch (e) { }
         }
     }
 
@@ -121,49 +92,38 @@ class VdoReceiver {
         this.pc = new RTCPeerConnection({ iceServers: this.iceServers });
 
         this.pc.onicecandidate = (event) => {
-            if (event.candidate) this.emit('signal', { room: this.roomID, msg: event.candidate });
-        };
-
-        this.pc.oniceconnectionstatechange = () => {
-            console.log("[VDO-ICE-State]", this.pc.iceConnectionState);
+            if (event.candidate) this.send({ room: this.roomID, msg: event.candidate });
         };
 
         this.pc.ontrack = (event) => {
-            console.log("[VDO-Track-In] Media Track received!", event.streams[0]);
+            console.log("[VDO-V11-Track-In] Media Track received!", event.streams[0]);
             if (this.audioElement) {
                 this.audioElement.srcObject = event.streams[0];
                 this.audioElement.onloadedmetadata = () => {
-                    this.audioElement.play().catch(err => console.warn("[VDO] Autoplay blocked", err));
+                    this.audioElement.play().catch(err => console.warn("[VDO] Playback failed", err));
                     this.setupAudioAnalysis(event.streams[0]);
                 };
             }
         };
 
-        this.pc.onconnectionstatechange = () => console.log("[VDO-PC-State]", this.pc.connectionState);
+        this.pc.onconnectionstatechange = () => console.log("[VDO-V11-PC-State]", this.pc.connectionState);
     }
 
     setupAudioAnalysis(stream) {
-        console.log("[VDO] Setting up audio analysis...");
         try {
             if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const source = this.audioCtx.createMediaStreamSource(stream);
             const analyser = this.audioCtx.createAnalyser();
             analyser.fftSize = 256;
             source.connect(analyser);
-
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             const meterBar = document.getElementById('vdo-meter-bar');
-
             const update = () => {
                 if (this.audioCtx.state === 'suspended') { requestAnimationFrame(update); return; }
                 analyser.getByteFrequencyData(dataArray);
                 let sum = 0; for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-                const percent = Math.min(100, ((sum / bufferLength) / 32) * 100);
-                if (meterBar) {
-                    meterBar.style.width = percent + '%';
-                    meterBar.style.background = percent > 85 ? 'var(--accent-pink)' : 'linear-gradient(90deg, var(--accent-teal), #fff)';
-                }
+                if (meterBar) meterBar.style.width = Math.min(100, ((sum / bufferLength) / 32) * 100) + '%';
                 requestAnimationFrame(update);
             };
             update();

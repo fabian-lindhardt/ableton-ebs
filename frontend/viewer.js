@@ -237,6 +237,10 @@ function handleSync(syncData) {
                             wrapper.style.setProperty('--item-color', `hsl(${100 + (value)}, 100%, 50%)`);
                         }
                     }
+                } else if (trigger.type === 'xy' || trigger.type === 'xypad') {
+                    if (wrapper.updateVisual) {
+                        wrapper.updateVisual(controller, value);
+                    }
                 }
             }
         }
@@ -442,22 +446,43 @@ function renderButtons() {
                 sendSmartTrigger({ ...trigger, controller: trigger.controllerY, value: y, type: 'cc' });
             }, 50);
 
+            wrapper.valX = 64;
+            wrapper.valY = 64;
+
+            wrapper.updateVisual = (cc, val) => {
+                if (wrapper.isDragging) return;
+
+                if (cc == (trigger.controller || trigger.controllerX)) {
+                    wrapper.valX = val;
+                } else if (cc == trigger.controllerY) {
+                    wrapper.valY = val;
+                }
+
+                const posX = (wrapper.valX / 127) * 100;
+                const posY = (1 - (wrapper.valY / 127)) * 100;
+                handle.style.left = posX + '%';
+                handle.style.top = posY + '%';
+            };
+
             const updateXY = (clientX, clientY) => {
                 const rect = pad.getBoundingClientRect();
                 const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
                 const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
                 handle.style.left = (x * 100) + '%';
                 handle.style.top = (y * 100) + '%';
-                sendXYThrottled(Math.floor(x * 127), Math.floor((1 - y) * 127));
+
+                wrapper.valX = Math.floor(x * 127);
+                wrapper.valY = Math.floor((1 - y) * 127);
+                sendXYThrottled(wrapper.valX, wrapper.valY);
             };
 
-            let isDragging = false;
-            pad.addEventListener('mousedown', (e) => { isDragging = true; updateXY(e.clientX, e.clientY); });
-            document.addEventListener('mousemove', (e) => { if (isDragging) updateXY(e.clientX, e.clientY); });
-            document.addEventListener('mouseup', () => { isDragging = false; });
-            pad.addEventListener('touchstart', (e) => { isDragging = true; updateXY(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); });
-            document.addEventListener('touchmove', (e) => { if (isDragging) updateXY(e.touches[0].clientX, e.touches[0].clientY); });
-            document.addEventListener('touchend', () => { isDragging = false; });
+            wrapper.isDragging = false;
+            pad.addEventListener('mousedown', (e) => { wrapper.isDragging = true; updateXY(e.clientX, e.clientY); });
+            document.addEventListener('mousemove', (e) => { if (wrapper.isDragging) updateXY(e.clientX, e.clientY); });
+            document.addEventListener('mouseup', () => { wrapper.isDragging = false; });
+            pad.addEventListener('touchstart', (e) => { wrapper.isDragging = true; updateXY(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); });
+            document.addEventListener('touchmove', (e) => { if (wrapper.isDragging) updateXY(e.touches[0].clientX, e.touches[0].clientY); });
+            document.addEventListener('touchend', () => { wrapper.isDragging = false; });
 
         } else if (['start', 'stop', 'pause', 'restart'].includes(trigger.type)) {
             wrapper.classList.add('type-transport');

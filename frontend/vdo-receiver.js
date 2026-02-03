@@ -32,11 +32,12 @@ class VdoReceiver {
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onmessage = (e) => {
+            const now = new Date().toLocaleTimeString();
             const data = e.data;
-            if (data.startsWith('42')) {
-                // Regular event, log the parsed version below
-            } else {
-                console.log("[VDO-Raw-In]", data);
+
+            // Log ALL raw incoming packets for protocol debugging
+            if (!data.startsWith('42')) {
+                console.log(`[VDO-Raw-In] [${now}]`, data);
             }
 
             if (data.startsWith('0')) { // Engine.io OPEN
@@ -44,15 +45,22 @@ class VdoReceiver {
             } else if (data === '2') { // Ping
                 this.ws.send('3'); // Pong
             } else if (data.startsWith('40')) { // Socket.io CONNECTED
-                console.log("[VDO] Protocol handshake complete. Joining room...");
-                // VDO.Ninja signaling usually takes the room ID as a direct string argument
+                console.log("[VDO] Connected! Sending expanded join sequence...");
+
+                // Variation 1: Direct Room ID (Common)
                 this.emit('join', this.roomID);
+
+                // Variation 2: Object room (Newer Socket.io versions)
+                this.emit('join-room', { room: this.roomID });
+
+                // Variation 3: Requesting Offer (Force response)
+                this.emit('request-offer', { room: this.roomID });
             } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
                     const parsed = JSON.parse(data.substring(2));
                     const event = parsed[0];
                     const payload = parsed[1];
-                    console.log("[VDO-Event-In]", event, payload);
+                    console.log(`[VDO-Event-In] [${now}]`, event, payload);
                     if (event === 'signal') this.handleSignal(payload.msg);
                 } catch (err) { console.warn("[VDO] Failed to parse message:", err); }
             }

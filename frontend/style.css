@@ -689,7 +689,8 @@ input[type=range].fader-input::-moz-range-thumb {
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(8px);
     z-index: 9999;
-    display: flex;
+    display: none;
+    /* Default hidden, JS toggles to flex */
     justify-content: center;
     align-items: center;
     animation: fadeIn 0.2s ease-out;

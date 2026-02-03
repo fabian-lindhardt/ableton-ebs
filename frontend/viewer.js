@@ -620,9 +620,21 @@ function activateVip(expiresAt) {
     const container = document.getElementById('audio-container');
     if (container) container.innerHTML = '<audio id="vdo-audio" autoplay playsinline></audio>'; // Ensure audio element exists
 
-    // Auto-Join Audio if activated
+    // Auto-Join Audio if activated? No, user must click join (browser audio policy)
+    // But we SHOW the button
     const joinBtn = document.getElementById('btn-join-audio');
-    if (joinBtn) joinBtn.style.display = 'block';
+    if (joinBtn) {
+        joinBtn.style.display = 'block';
+        // Remove old listeners to prevent duplicates (assign new one)
+        joinBtn.onclick = () => {
+            console.log("Join Audio clicked! Starting Stream...");
+            startAudioStream();
+            joinBtn.style.display = 'none';
+        };
+    }
+
+    // Ensure Modal is hidden
+    if (typeof hideUnlockModal === 'function') hideUnlockModal();
 }
 
 // --- Interaction Interceptor (The Paywall) ---

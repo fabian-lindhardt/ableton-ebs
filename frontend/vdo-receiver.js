@@ -24,34 +24,41 @@ class VdoReceiver {
             return;
         }
 
+        // Initialize PC immediately to capture all state changes
+        await this.setupPeerConnection();
+
         // Setup Signaling (Minimal Socket.io emulation)
         const wsUrl = `wss://${this.signalingUrl}/socket.io/?EIO=4&transport=websocket`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onmessage = (e) => {
             const data = e.data;
+            if (data.startsWith('42')) {
+                // Regular event, log the parsed version below
+            } else {
+                console.log("[VDO-Raw-In]", data);
+            }
+
             if (data.startsWith('0')) { // Engine.io OPEN
                 this.ws.send('40'); // Socket.io Connect (Root Namespace)
             } else if (data === '2') { // Ping
                 this.ws.send('3'); // Pong
             } else if (data.startsWith('40')) { // Socket.io CONNECTED
                 console.log("[VDO] Protocol handshake complete. Joining room...");
-                this.emit('join', { room: this.roomID });
+                // VDO.Ninja signaling usually takes the room ID as a direct string argument
+                this.emit('join', this.roomID);
             } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
                     const parsed = JSON.parse(data.substring(2));
                     const event = parsed[0];
                     const payload = parsed[1];
-                    console.log("[VDO] Signaling Event:", event, payload);
+                    console.log("[VDO-Event-In]", event, payload);
                     if (event === 'signal') this.handleSignal(payload.msg);
                 } catch (err) { console.warn("[VDO] Failed to parse message:", err); }
             }
         };
 
-        this.ws.onopen = () => {
-            console.log("[VDO] WebSocket connected. Handshaking...");
-        };
-
+        this.ws.onopen = () => console.log("[VDO] WebSocket connected. Handshaking...");
         this.ws.onerror = (e) => console.error("[VDO] Signaling error:", e);
         this.ws.onclose = () => console.warn("[VDO] Signaling closed.");
 
@@ -62,12 +69,18 @@ class VdoReceiver {
             const iceState = this.pc ? this.pc.iceConnectionState : 'NONE';
             const hasTrack = !!(this.audioElement && this.audioElement.srcObject);
             console.log(`[VDO-Diag] WS: ${wsState}, PC: ${pcState}, ICE: ${iceState}, Track: ${hasTrack}`);
+
+            // Auto-resume AudioContext if it gets stuck
+            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                console.log("[VDO-Diag] Resuming AudioContext...");
+                this.audioCtx.resume();
+            }
         }, 10000);
     }
 
     emit(event, data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            console.log("[VDO] Sending Event:", event, data);
+            console.log("[VDO-Event-Out]", event, data);
             this.ws.send('42' + JSON.stringify([event, data]));
         }
     }
@@ -77,17 +90,14 @@ class VdoReceiver {
 
         if (msg.type === 'offer') {
             console.log("[VDO] Received offer, creating answer...");
-            await this.setupPeerConnection();
             await this.pc.setRemoteDescription(new RTCSessionDescription(msg));
             const answer = await this.pc.createAnswer();
             await this.pc.setLocalDescription(answer);
             this.emit('signal', { room: this.roomID, msg: answer });
         } else if (msg.candidate) {
-            if (this.pc) {
-                try {
-                    await this.pc.addIceCandidate(new RTCIceCandidate(msg));
-                } catch (e) { console.warn("[VDO] Error adding candidate:", e); }
-            }
+            try {
+                await this.pc.addIceCandidate(new RTCIceCandidate(msg));
+            } catch (e) { console.warn("[VDO] Error adding candidate:", e); }
         }
     }
 
@@ -99,24 +109,24 @@ class VdoReceiver {
 
         this.pc.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log("[VDO] ICE Candidate generated:", event.candidate.candidate.substring(0, 30) + "...");
+                console.log("[VDO-ICE-Out]", event.candidate.candidate.substring(0, 30) + "...");
                 this.emit('signal', { room: this.roomID, msg: event.candidate });
             }
         };
 
         this.pc.oniceconnectionstatechange = () => {
-            console.log("[VDO] ICE State:", this.pc.iceConnectionState);
+            console.log("[VDO-ICE-State]", this.pc.iceConnectionState);
         };
 
         this.pc.ontrack = (event) => {
-            console.log("[VDO] Media Track received!", event.streams[0]);
+            console.log("[VDO-Track-In] Media Track received!", event.streams[0]);
             if (this.audioElement) {
                 console.log("[VDO] Binding track to audio element...");
                 this.audioElement.srcObject = event.streams[0];
                 this.audioElement.onloadedmetadata = () => {
                     console.log("[VDO] Audio metadata loaded, starting playback...");
                     this.audioElement.play().catch(err => {
-                        console.warn("[VDO] Autoplay failed - user must click Join Audio again:", err);
+                        console.warn("[VDO] Autoplay failed - click Join Audio again:", err);
                     });
                     this.setupAudioAnalysis(event.streams[0]);
                 };
@@ -124,7 +134,7 @@ class VdoReceiver {
         };
 
         this.pc.onconnectionstatechange = () => {
-            console.log("[VDO] Connection State:", this.pc.connectionState);
+            console.log("[VDO-PC-State]", this.pc.connectionState);
             if (this.pc.connectionState === 'failed') {
                 console.error("[VDO] WebRTC Connection Failed. Check STUN/TURN servers.");
             }
@@ -134,9 +144,11 @@ class VdoReceiver {
     setupAudioAnalysis(stream) {
         console.log("[VDO] Setting up audio analysis...");
         try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const source = audioCtx.createMediaStreamSource(stream);
-            const analyser = audioCtx.createAnalyser();
+            if (!this.audioCtx) {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const source = this.audioCtx.createMediaStreamSource(stream);
+            const analyser = this.audioCtx.createAnalyser();
             analyser.fftSize = 256;
             source.connect(analyser);
 
@@ -145,8 +157,9 @@ class VdoReceiver {
             const meterBar = document.getElementById('vdo-meter-bar');
 
             const update = () => {
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
+                if (this.audioCtx.state === 'suspended') {
+                    requestAnimationFrame(update);
+                    return;
                 }
                 analyser.getByteFrequencyData(dataArray);
                 let sum = 0;
@@ -154,7 +167,6 @@ class VdoReceiver {
                     sum += dataArray[i];
                 }
                 const average = sum / bufferLength;
-                // Sensitivity boost: scaling based on a lower threshold since Opus/WebRTC often has lower gain
                 const percent = Math.min(100, (average / 32) * 100);
                 if (meterBar) {
                     meterBar.style.width = percent + '%';

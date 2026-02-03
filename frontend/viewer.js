@@ -144,6 +144,7 @@ function handleSync(syncData) {
         const trgCh = trigger.channel || 0;
 
         // Exact Match requested by user to support multi-channel setups
+        console.log(`[Sync-Check] Match test: Trigger(${trigger.label}) Ch:${trgCh} CC:${trigger.controller} vs Sync Ch:${channel} CC:${controller}`);
         if (trgCh == channel && (trigger.controller == controller || trigger.controllerY == controller)) {
             console.log(`[Sync-Match!!] Updating ${trigger.label} to ${value}`);
             const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);

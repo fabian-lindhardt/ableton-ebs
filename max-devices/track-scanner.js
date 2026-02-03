@@ -1,4 +1,4 @@
-// Streamlined Deep Scanner v40 - Payload Optimized
+// Ultra-Safe Deep Scanner v41 - Precision & Stability
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
@@ -27,6 +27,7 @@ function iterateScan() {
             // FINISHED
             outlet(0, JSON.stringify({ type: "metadata", data: scanData }));
             isScanning = false;
+            post("Deep Scan Complete (" + scanData.tracks.length + " tracks)\n");
             return;
         }
 
@@ -37,15 +38,15 @@ function iterateScan() {
             var tColor = trackApi.get("color");
             var clips = [];
 
-            // Scan 12 clips per track (streamlined from 16 to save space)
-            for (var j = 0; j < 12; j++) {
+            // Limit to 10 slots for extreme stability
+            for (var j = 0; j < 10; j++) {
                 slotApi.path = "live_set tracks " + currentTrackIndex + " clip_slots " + j;
                 if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
                     clipApi.path = "live_set tracks " + currentTrackIndex + " clip_slots " + j + " clip";
                     if (clipApi.id !== "0") {
                         clips.push({
                             index: j,
-                            name: limitStr(cleanString(clipApi.get("name")), 10), // Ultra-short names
+                            name: limitStr(cleanString(clipApi.get("name")), 10),
                             color: hexify(clipApi.get("color")),
                             is_playing: clipApi.get("is_playing") == 1,
                             is_triggered: clipApi.get("is_triggered") == 1
@@ -63,22 +64,23 @@ function iterateScan() {
         }
 
         currentTrackIndex++;
-        scanTask.schedule(20);
+        scanTask.schedule(40); // 40ms inter-track delay for stability
 
     } catch (e) {
+        post("Iterate Error: " + e + "\n");
         isScanning = false;
     }
 }
 
 function startScan() {
-    if (isScanning) scanTask.cancel();
+    if (isScanning) return; // Busy Lock
 
     isScanning = true;
     currentTrackIndex = 0;
     scanData = { tracks: [], scenes: [] };
 
     try {
-        // 1. Brute Force Scene Scan (Probing 12 scenes)
+        // Brute Force Scene Scan (Probing 12 scenes)
         for (var i = 0; i < 12; i++) {
             sceneApi.path = "live_set scenes " + i;
             if (sceneApi.id && sceneApi.id !== "0") {
@@ -110,8 +112,14 @@ function anything() {
                 var ea = new LiveAPI("live_set scenes " + args[1]);
                 if (ea && ea.id !== "0") ea.call("fire");
             }
-            startScan();
-        } catch (e) { }
+
+            // Re-scan after a delay to show play states
+            var respawn = new Task(function () { startScan(); }, this);
+            respawn.schedule(150);
+
+        } catch (e) {
+            post("Exec Error: " + e + "\n");
+        }
     }, this);
     t.schedule(0);
 }

@@ -271,10 +271,12 @@ function handleMetadataSync(metadata) {
             if (idx !== -1) metadataCache.tracks[idx] = item;
             else metadataCache.tracks.push(item);
         });
-    } else {
         // Handle reactive object format { tracks, scenes }
         if (metadata.tracks) {
             metadata.tracks.forEach(track => {
+                // Skip invalid tracks
+                if (track.index === undefined || track.name === undefined) return;
+
                 updateTriggerVisuals(track);
                 // Delta Merge
                 const idx = metadataCache.tracks.findIndex(t => t.index === track.index);

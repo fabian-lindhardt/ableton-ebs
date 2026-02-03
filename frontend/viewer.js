@@ -255,7 +255,7 @@ function handleSync(syncData) {
     });
 }
 
-// Handle Track Names/Colors Sync (v42 Delta-Merging)
+// Handle Track Names/Colors Sync (v46 Fixed)
 function handleMetadataSync(metadata) {
     if (!metadata) return;
 
@@ -266,13 +266,15 @@ function handleMetadataSync(metadata) {
     if (Array.isArray(metadata)) {
         // Handle legacy array format
         metadata.forEach(item => {
+            if (item.index === undefined || item.name === undefined) return;
             updateTriggerVisuals(item);
             const idx = metadataCache.tracks.findIndex(t => t.index === item.index);
             if (idx !== -1) metadataCache.tracks[idx] = item;
             else metadataCache.tracks.push(item);
         });
+    } else {
         // Handle reactive object format { tracks, scenes }
-        if (metadata.tracks) {
+        if (metadata.tracks && metadata.tracks.length > 0) {
             metadata.tracks.forEach(track => {
                 // Skip invalid tracks
                 if (track.index === undefined || track.name === undefined) return;
@@ -287,7 +289,7 @@ function handleMetadataSync(metadata) {
             metadataCache.tracks.sort((a, b) => a.index - b.index);
         }
         if (metadata.scenes && metadata.scenes.length > 0) {
-            metadataCache.scenes = metadata.scenes;
+            metadataCache.scenes = metadata.scenes.filter(s => s.name !== undefined);
         }
     }
     renderGridMatrix();

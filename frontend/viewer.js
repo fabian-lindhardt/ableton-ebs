@@ -598,19 +598,20 @@ function checkSession() {
         });
 }
 
+const hasVIP = () => document.getElementById('app').classList.contains('is-vip');
+
 function lockInterface() {
-    console.log("UI locked.");
-    document.getElementById('app').classList.add('is-locked');
+    console.log("UI set to Preview Mode.");
     document.getElementById('app').classList.remove('is-vip');
+    // Lock logic is now handled by event capturing
     const container = document.getElementById('audio-container');
-    if (container) container.innerHTML = '<audio id="vdo-audio" autoplay playsinline></audio>'; // Ensure audio element exists
+    if (container) container.innerHTML = '';
     if (timerInterval) clearInterval(timerInterval);
 }
 
 function activateVip(expiresAt) {
     console.log("VIP activated until:", new Date(expiresAt).toLocaleTimeString());
     vipExpiresAt = expiresAt;
-    document.getElementById('app').classList.remove('is-locked');
     document.getElementById('app').classList.add('is-vip');
     if (timerInterval) clearInterval(timerInterval);
     updateTimerDisplay();
@@ -619,17 +620,63 @@ function activateVip(expiresAt) {
     const container = document.getElementById('audio-container');
     if (container) container.innerHTML = '<audio id="vdo-audio" autoplay playsinline></audio>'; // Ensure audio element exists
 
-    // Prepare the Join Button
+    // Auto-Join Audio if activated
     const joinBtn = document.getElementById('btn-join-audio');
-    if (joinBtn) {
-        joinBtn.style.display = 'block'; // Ensure visible
-        joinBtn.onclick = () => {
-            console.log("Join Audio clicked! Performing synchronous injection...");
-            startAudioStream();
-            joinBtn.style.display = 'none'; // Hide after joining
-        };
-    }
+    if (joinBtn) joinBtn.style.display = 'block';
 }
+
+// --- Interaction Interceptor (The Paywall) ---
+document.addEventListener('mousedown', interceptInteraction, true); // Capture phase!
+document.addEventListener('click', interceptInteraction, true);     // Capture phase!
+document.addEventListener('touchstart', interceptInteraction, { capture: true, passive: false });
+
+function interceptInteraction(e) {
+    // Whitelist
+    if (checkWhitelist(e.target)) return;
+
+    // Broadcaster always allowed
+    if (isBroadcaster()) return;
+
+    // VIP always allowed
+    if (hasVIP()) return;
+
+    // Block Interaction & Show Modal
+    e.stopPropagation();
+    e.preventDefault();
+    console.log('[Preview] Interaction blocked. Opening modal.');
+    showUnlockModal();
+}
+
+function checkWhitelist(target) {
+    // Allow Unlock Modal Interactions
+    if (target.closest('.modal-content')) return true;
+    if (target.closest('.modal-overlay')) return true;
+    // Allow Dev Settings (if overlay visible)
+    if (target.closest('#dev-settings')) return true;
+    // Allow Edit Mode (if broadcaster fails to detect but we want to allow edit clicks - actually intercept handles this via isBroadcaster)
+
+    // Stop propagation ONLY if it's a control or join button
+    const isControl = target.closest('#dynamic-triggers') || target.closest('#btn-join-audio');
+    if (!isControl) return true; // Allow clicking empty space
+
+    return false;
+}
+
+// Modal Logic
+const modal = document.getElementById('unlock-modal');
+const closeModal = document.getElementById('btn-close-modal');
+// unlockBtn is defined later in the file, we'll let that handle the click listeners
+
+function showUnlockModal() {
+    modal.style.display = 'flex';
+}
+
+function hideUnlockModal() {
+    modal.style.display = 'none';
+}
+
+if (closeModal) closeModal.onclick = hideUnlockModal;
+// Unlock button click handled by existing listener (triggerTransaction/Dev)
 
 function startAudioStream() {
     // 1. Production Config (Broadcaster/Global)

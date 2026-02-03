@@ -615,56 +615,152 @@ input[type=range].fader-input::-moz-range-thumb {
     opacity: 0.01;
 }
 
-.unlock-overlay {
-    position: fixed;
-    /* Fixed to cover view */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    max-width: 300px;
-    background: rgba(10, 10, 15, 0.9);
-    border: 1px solid var(--primary-color);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 10px var(--primary-color);
-    padding: 20px;
-    border-radius: 16px;
+/* Panel Notice (Only visible in non-popout) */
+.panel-notice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
     text-align: center;
-    z-index: 100;
-    display: none;
-    /* Hidden by default */
-    backdrop-filter: blur(10px);
+    color: var(--text-muted);
+    animation: fadeIn 0.5s ease-out;
 }
 
-.is-locked .unlock-overlay {
-    display: block;
-    animation: fadeIn 0.5s ease-out;
+.app.is-popout .notice-icon,
+.app.is-popout .panel-notice {
+    display: none;
+}
+
+.notice-icon {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    opacity: 0.8;
+    filter: drop-shadow(0 0 10px var(--accent-teal));
+}
+
+.panel-notice h2 {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--primary-color);
+    margin-bottom: 15px;
+}
+
+.panel-notice p {
+    font-size: 0.9rem;
+    max-width: 200px;
+    line-height: 1.5;
+}
+
+/* Grid Container for Pop-out */
+/* Grid Container for Pop-out (Controller Builder) */
+.app.is-popout #dynamic-triggers {
+    display: grid;
+    /* 12-column robust layout for finer control */
+    grid-template-columns: repeat(12, 1fr);
+    /* Auto rows with fixed min-height for snapping */
+    grid-auto-rows: 60px;
+    gap: 10px;
+    padding: 50px 0 20px 0;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Responsive Grid Columns */
+@media (max-width: 600px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(6, 1fr);
+        /* Mobile popout fallback */
+    }
+}
+
+@media (min-width: 1000px) {
+    .app.is-popout #dynamic-triggers {
+        grid-template-columns: repeat(12, 1fr);
+    }
+}
+
+/* --- Modal Overlay (Hidden by default) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+    background: var(--glass-surface);
+    border: 1px solid var(--accent-teal);
+    border-radius: 12px;
+    padding: 30px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 0 50px rgba(0, 255, 255, 0.1);
+    animation: slideUp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.close-modal-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-modal-btn:hover {
+    color: white;
 }
 
 .unlock-title {
     font-family: 'Orbitron', sans-serif;
     color: var(--primary-color);
-    font-size: 1.2rem;
     margin-bottom: 10px;
-    text-shadow: 0 0 10px var(--primary-color);
+    font-size: 1.5rem;
+    text-shadow: 0 0 15px var(--primary-glow);
 }
 
+.perks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+/* Unlock Button (Premium) */
 .unlock-btn {
-    background: linear-gradient(135deg, #9146FF 0%, #7c2bfb 100%);
+    background: linear-gradient(135deg, #9146FF, #6441A5);
     color: white;
     border: none;
-    padding: 12px 24px;
-    border-radius: 30px;
+    padding: 12px 30px;
+    font-size: 1.1rem;
     font-weight: bold;
+    border-radius: 50px;
     cursor: pointer;
-    font-size: 1rem;
-    margin-top: 15px;
-    box-shadow: 0 4px 15px rgba(145, 70, 255, 0.4);
-    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 5px 20px rgba(100, 65, 165, 0.5);
+    transition: all 0.3s;
+    width: 100%;
 }
 
 .unlock-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 25px rgba(145, 70, 255, 0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(100, 65, 165, 0.7);
 }
 
 /* VIP Header (Sticky Header) */

@@ -27,17 +27,26 @@
             <button class="join-audio-btn" id="btn-join-audio">🔊 JOIN AUDIO</button>
         </div>
 
-        <!-- Unlock Overlay -->
-        <div class="unlock-overlay">
-            <h2 class="unlock-title">CONTROL LOCKED</h2>
-            <p>Unlock 5 Minutes of Control & Realtime Audio</p>
-            <button class="unlock-btn" id="btn-unlock">💎 100 Bits</button>
+        <!-- Unlock Modal (Hidden by default) -->
+        <div id="unlock-modal" class="modal-overlay" style="display:none;">
+            <div class="modal-content">
+                <button class="close-modal-btn" id="btn-close-modal">×</button>
+                <h2 class="unlock-title">UNLOCK CONTROL</h2>
+                <p>Gain full control & realtime audio for 5 minutes!</p>
+                <div class="perks-list">
+                    <span>🎛️ Live MIDI Control</span>
+                    <span>🎹 Low-Latency Audio</span>
+                    <span>⚡ Instant Feedback</span>
+                </div>
+                <button class="unlock-btn" id="btn-unlock">💎 100 Bits</button>
 
-            <!-- Dev/Local ID Picker -->
-            <div id="dev-settings" style="margin-top:20px; border-top: 1px solid #333; padding-top:10px; display:none;">
-                <label style="font-size:10px; color:#aaa;">Dev: VDO.Ninja URL or ID</label><br>
-                <input type="text" id="dev-vdo-id" placeholder="Paste URL or ID"
-                    style="background:#222; border:1px solid #444; color:white; font-size:10px; width:180px; text-align:center;">
+                <!-- Dev Settings inside Modal -->
+                <div id="dev-settings"
+                    style="margin-top:15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top:10px; display:none;">
+                    <label style="font-size:10px; color:#aaa;">Dev: VDO.Ninja URL or ID</label><br>
+                    <input type="text" id="dev-vdo-id" placeholder="Paste URL or ID"
+                        style="background:#222; border:1px solid #444; color:white; font-size:10px; width:100px; text-align:center;">
+                </div>
             </div>
         </div>
 
@@ -69,13 +78,13 @@
             <h2>Full Control Required</h2>
             <p>Please open the extension in <strong>Pop-out</strong> mode to access the full controller.</p>
         </div>
-        <div style="position:fixed; opacity:0.3; font-size:9px; bottom:2px; left:2px; color:white;">v20 (UX Polish +
-            Resize Prompt)</div>
+        <div style="position:fixed; opacity:0.3; font-size:9px; bottom:2px; left:2px; color:white;">v21 (Preview +
+            Modal)</div>
     </div>
 
     <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
-    <script src="vdo-receiver.js?v=20"></script>
-    <script src="viewer.js?v=20"></script>
+    <script src="vdo-receiver.js?v=21"></script>
+    <script src="viewer.js?v=21"></script>
 </body>
 
 </html>

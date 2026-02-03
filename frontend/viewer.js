@@ -724,8 +724,9 @@ function renderGridMatrix() {
         }
         if (header.innerText !== track.name) header.innerText = track.name;
 
-        // Clip Pads Patching (Sync with first 12 slots)
-        for (let i = 0; i < 12; i++) {
+        // Clip Pads Patching (Dynamic scene count)
+        const sceneCount = (metadataCache && metadataCache.scenes) ? metadataCache.scenes.length : 12;
+        for (let i = 0; i < sceneCount; i++) {
             let pad = col.querySelector(`.clip-pad[data-slot-index="${i}"]`);
             if (!pad) {
                 pad = document.createElement('div');
@@ -771,7 +772,8 @@ function renderGridMatrix() {
     }
 
     if (masterCol) {
-        for (let i = 0; i < 12; i++) {
+        const sceneCount = (activeData.scenes) ? activeData.scenes.length : 12;
+        for (let i = 0; i < sceneCount; i++) {
             let pad = masterCol.querySelector(`.clip-pad[data-scene-index="${i}"]`);
             if (!pad) {
                 pad = document.createElement('div');

@@ -36,7 +36,7 @@ class VdoReceiver {
                 this.ws.send('3'); // Pong
             } else if (data.startsWith('40')) { // Socket.io CONNECTED
                 console.log("[VDO] Protocol handshake complete. Joining room...");
-                this.emit('join', this.roomID);
+                this.emit('join', { room: this.roomID });
             } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
                     const parsed = JSON.parse(data.substring(2));
@@ -54,10 +54,20 @@ class VdoReceiver {
 
         this.ws.onerror = (e) => console.error("[VDO] Signaling error:", e);
         this.ws.onclose = () => console.warn("[VDO] Signaling closed.");
+
+        // Diagnostic heartbeat (every 10s)
+        setInterval(() => {
+            const wsState = this.ws ? (['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.ws.readyState]) : 'NONE';
+            const pcState = this.pc ? this.pc.connectionState : 'NONE';
+            const iceState = this.pc ? this.pc.iceConnectionState : 'NONE';
+            const hasTrack = !!(this.audioElement && this.audioElement.srcObject);
+            console.log(`[VDO-Diag] WS: ${wsState}, PC: ${pcState}, ICE: ${iceState}, Track: ${hasTrack}`);
+        }, 10000);
     }
 
     emit(event, data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            console.log("[VDO] Sending Event:", event, data);
             this.ws.send('42' + JSON.stringify([event, data]));
         }
     }
@@ -84,6 +94,7 @@ class VdoReceiver {
     async setupPeerConnection() {
         if (this.pc) return;
 
+        console.log("[VDO] Initializing PeerConnection...");
         this.pc = new RTCPeerConnection({ iceServers: this.iceServers });
 
         this.pc.onicecandidate = (event) => {
@@ -133,20 +144,9 @@ class VdoReceiver {
             const dataArray = new Uint8Array(bufferLength);
             const meterBar = document.getElementById('vdo-meter-bar');
 
-            // 10-second diagnostic log
-            setInterval(() => {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-                const avg = sum / bufferLength;
-                console.log(`[VDO-Diag] State: ${audioCtx.state}, Avg Volume: ${avg.toFixed(2)}`);
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-            }, 10000);
-
             const update = () => {
                 if (audioCtx.state === 'suspended') {
-                    requestAnimationFrame(update);
-                    return;
+                    audioCtx.resume();
                 }
                 analyser.getByteFrequencyData(dataArray);
                 let sum = 0;

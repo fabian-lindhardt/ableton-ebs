@@ -801,9 +801,42 @@ input[type=range].fader-input::-moz-range-thumb {
     transform: scale(1.1);
 }
 
+.unlock-btn-small {
+    background: linear-gradient(135deg, #9146FF, #6441A5);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.7rem;
+    margin-left: 10px;
+    box-shadow: 0 0 10px var(--primary-glow);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(145, 70, 255, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(145, 70, 255, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(145, 70, 255, 0);
+    }
+}
+
 .is-vip .vip-timer,
 .is-vip .join-audio-btn {
     display: block;
+}
+
+.is-vip .unlock-btn-small {
+    display: none;
 }
 
 /* Audio Player (Hidden/Visible logic) */

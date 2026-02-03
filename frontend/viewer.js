@@ -667,8 +667,11 @@ function checkWhitelist(target) {
     if (target.closest('#dev-settings')) return true;
     // Allow Edit Mode (if broadcaster fails to detect but we want to allow edit clicks - actually intercept handles this via isBroadcaster)
 
-    // Stop propagation ONLY if it's a control or join button
-    const isControl = target.closest('#dynamic-triggers') || target.closest('#btn-join-audio');
+    // Stop propagation if it's a control, join button, OR static controls (Play/Stop)
+    const isControl = target.closest('#dynamic-triggers') ||
+        target.closest('#btn-join-audio') ||
+        target.closest('.controls'); // Play/Stop block
+
     if (!isControl) return true; // Allow clicking empty space
 
     return false;
@@ -677,7 +680,7 @@ function checkWhitelist(target) {
 // Modal Logic
 const modal = document.getElementById('unlock-modal');
 const closeModal = document.getElementById('btn-close-modal');
-// unlockBtn is defined later in the file, we'll let that handle the click listeners
+const headerUnlockBtn = document.getElementById('btn-header-unlock');
 
 function showUnlockModal() {
     modal.style.display = 'flex';
@@ -688,6 +691,7 @@ function hideUnlockModal() {
 }
 
 if (closeModal) closeModal.onclick = hideUnlockModal;
+if (headerUnlockBtn) headerUnlockBtn.onclick = showUnlockModal;
 // Unlock button click handled by existing listener (triggerTransaction/Dev)
 
 function startAudioStream() {

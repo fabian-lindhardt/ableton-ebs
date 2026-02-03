@@ -115,14 +115,22 @@ if (twitch) {
     // Listen for PubSub Broadcasts (Bi-directional Sync)
     twitch.listen('broadcast', (target, contentType, message) => {
         try {
-            const data = JSON.parse(message);
-            console.log('Received Broadcast:', data);
+            console.log('--- PubSub Message Received ---');
+            console.log('Target:', target);
+            console.log('Content-Type:', contentType);
+            console.log('Raw Message:', message);
+
+            let data = JSON.parse(message);
+            // Handle double-stringification if it occurs
+            if (typeof data === 'string') data = JSON.parse(data);
+
+            console.log('Parsed Payload:', data);
 
             if (data.type === 'sync') {
                 handleSync(data.data);
             }
         } catch (e) {
-            console.error('PubSub Error:', e);
+            console.error('PubSub Parsing Error:', e);
         }
     });
 }

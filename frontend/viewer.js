@@ -311,14 +311,22 @@ function updateTriggerVisuals(item) {
 }
 
 function applyMetadataState(metadataMap) {
-    // Map is { "0": {name, color}, "1": ... }
-    const array = Object.entries(metadataMap)
-        .map(([index, val]) => ({
-            index: parseInt(index),
-            ...val
-        }))
-        .filter(item => !isNaN(item.index) && item.name !== undefined);
-    handleMetadataSync(array);
+    // Handle new format: { tracks: [], scenes: [] }
+    if (metadataMap && (metadataMap.tracks || metadataMap.scenes)) {
+        handleMetadataSync(metadataMap);
+        return;
+    }
+
+    // Handle legacy map format: { "0": {name, color}, "1": ... }
+    if (metadataMap && typeof metadataMap === 'object') {
+        const array = Object.entries(metadataMap)
+            .map(([index, val]) => ({
+                index: parseInt(index),
+                ...val
+            }))
+            .filter(item => !isNaN(item.index) && item.name !== undefined);
+        handleMetadataSync(array);
+    }
 }
 
 function renderButtons() {

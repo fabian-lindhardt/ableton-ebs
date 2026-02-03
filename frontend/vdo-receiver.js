@@ -88,22 +88,34 @@ class VdoReceiver {
 
         this.pc.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log("[VDO] ICE Candidate generated:", event.candidate.candidate.substring(0, 30) + "...");
                 this.emit('signal', { room: this.roomID, msg: event.candidate });
             }
         };
 
+        this.pc.oniceconnectionstatechange = () => {
+            console.log("[VDO] ICE State:", this.pc.iceConnectionState);
+        };
+
         this.pc.ontrack = (event) => {
-            console.log("[VDO] Received track:", event.streams[0]);
+            console.log("[VDO] Media Track received!", event.streams[0]);
             if (this.audioElement) {
+                console.log("[VDO] Binding track to audio element...");
                 this.audioElement.srcObject = event.streams[0];
-                this.audioElement.play().catch(err => {
-                    console.warn("[VDO] Autoplay blocked, needs user interaction:", err);
-                });
+                this.audioElement.onloadedmetadata = () => {
+                    console.log("[VDO] Audio metadata loaded, starting playback...");
+                    this.audioElement.play().catch(err => {
+                        console.warn("[VDO] Autoplay failed - user must click Join Audio again:", err);
+                    });
+                };
             }
         };
 
         this.pc.onconnectionstatechange = () => {
-            console.log("[VDO] Connection state:", this.pc.connectionState);
+            console.log("[VDO] Connection State:", this.pc.connectionState);
+            if (this.pc.connectionState === 'failed') {
+                console.error("[VDO] WebRTC Connection Failed. Check STUN/TURN servers.");
+            }
         };
     }
 }

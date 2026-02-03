@@ -143,41 +143,41 @@ function handleSync(syncData) {
     activeTriggers.forEach((trigger) => {
         const trgCh = trigger.channel || 0;
 
-        if (trigger.type === 'fader' || trigger.type === 'knob') {
-            console.log(`[Sync-Check] Match test: Trigger(${trigger.label}) Ch:${trgCh} CC:${trigger.controller} vs Sync Ch:${channel} CC:${controller}`);
-            if (trgCh == channel && (trigger.controller == controller || trigger.controllerY == controller)) {
-                console.log(`[Sync-Match!!] Updating ${trigger.label} to ${value}`);
-                const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
-                if (wrapper) {
-                    if (trigger.type === 'fader') {
-                        const input = wrapper.querySelector('input');
-                        const display = wrapper.querySelector('.fader-value-display');
-                        if (input && display) {
-                            if (wrapper.isDragging) return;
-                            input.value = value;
-                            display.innerText = value;
-                            wrapper.style.setProperty('--val-percent', (value / 127) * 100 + '%');
-                        }
-                    } else if (trigger.type === 'knob') {
-                        if (wrapper.updateVisual) {
-                            wrapper.updateVisual(value);
-                        } else {
-                            const rotator = wrapper.querySelector('.knob-rotator');
-                            const text = wrapper.querySelector('.knob-value-text');
-                            const ring = wrapper.querySelector('.knob-value-ring');
+        // Compare with both 0-indexed and 1-indexed to be safe against bridge/Ableton offsets
+        const isMatch = (trgCh == channel) || (trgCh == (channel - 1)) || ((trgCh + 1) == channel);
 
-                            if (rotator && text && ring) {
-                                const minAngle = -135; const maxAngle = 135;
-                                const percent = value / 127;
-                                const angle = minAngle + (percent * (maxAngle - minAngle));
-                                rotator.style.transform = `rotate(${angle}deg)`;
-                                rotator.style.transformOrigin = '50px 50px';
-                                text.innerText = value;
-                                const circum = 2 * Math.PI * 40;
-                                const offset = circum - (percent * (circum * 0.75));
-                                ring.style.strokeDashoffset = offset;
-                                wrapper.style.setProperty('--item-color', `hsl(${100 + (value)}, 100%, 50%)`);
-                            }
+        if (isMatch && (trigger.controller == controller || trigger.controllerY == controller)) {
+            console.log(`[Sync-Match!!] Updating ${trigger.label} to ${value}`);
+            const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
+            if (wrapper) {
+                if (trigger.type === 'fader') {
+                    const input = wrapper.querySelector('input');
+                    const display = wrapper.querySelector('.fader-value-display');
+                    if (input && display) {
+                        if (wrapper.isDragging) return;
+                        input.value = value;
+                        display.innerText = value;
+                        wrapper.style.setProperty('--val-percent', (value / 127) * 100 + '%');
+                    }
+                } else if (trigger.type === 'knob') {
+                    if (wrapper.updateVisual) {
+                        wrapper.updateVisual(value);
+                    } else {
+                        const rotator = wrapper.querySelector('.knob-rotator');
+                        const text = wrapper.querySelector('.knob-value-text');
+                        const ring = wrapper.querySelector('.knob-value-ring');
+
+                        if (rotator && text && ring) {
+                            const minAngle = -135; const maxAngle = 135;
+                            const percent = value / 127;
+                            const angle = minAngle + (percent * (maxAngle - minAngle));
+                            rotator.style.transform = `rotate(${angle}deg)`;
+                            rotator.style.transformOrigin = '50px 50px';
+                            text.innerText = value;
+                            const circum = 2 * Math.PI * 40;
+                            const offset = circum - (percent * (circum * 0.75));
+                            ring.style.strokeDashoffset = offset;
+                            wrapper.style.setProperty('--item-color', `hsl(${100 + (value)}, 100%, 50%)`);
                         }
                     }
                 }

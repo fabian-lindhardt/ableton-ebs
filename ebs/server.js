@@ -89,14 +89,16 @@ async function broadcastToPubSub(payload) {
     try {
         // Create JWT for PubSub
         const token = jwt.sign({
-            exp: Math.floor(Date.now() / 1000) + 10, // 10s expiration
-            user_id: 'owner', // Role
+            exp: Math.floor(Date.now() / 1000) + 60, // 60s expiration
+            user_id: channelId,
             role: 'external',
             channel_id: channelId,
             pubsub_perms: {
                 send: ['broadcast']
             }
         }, EXTENSION_SECRET, { algorithm: 'HS256' });
+
+        // console.log(`[PubSub] Sending to ${channelId} with token for ${channelId}`);
 
         const response = await fetch('https://api.twitch.tv/helix/extensions/pubsub', {
             method: 'POST',

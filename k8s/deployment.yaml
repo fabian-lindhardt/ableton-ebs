@@ -17,7 +17,7 @@ spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
-      - name: ebs
+      - name: ableton-ebs
         image: ghcr.io/fabian-lindhardt/ableton-ebs:latest 
         # Note: You need to build and push this image, or change the image name
         imagePullPolicy: Always

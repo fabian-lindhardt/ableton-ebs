@@ -1,4 +1,4 @@
-// Ghost Protocol v43 - Non-Blocking Queue & Single Threaded Execution
+// Segmented Reactive Engine v44 - Load Once, Sync Deltas
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
@@ -11,60 +11,40 @@ var clipApi = new LiveAPI("");
 var sceneApi = new LiveAPI("");
 
 // State Management
-var updateQueue = [];
-var isScanning = false;
 var activeTrackCount = 0;
-
-// Update Processor Loop
-var processTask = new Task(function () {
-    if (updateQueue.length > 0) {
-        var trackIdx = updateQueue.shift();
-        executeTrackScan(trackIdx);
-    }
-}, this);
-processTask.interval = 100; // Safe 10Hz update rate
-processTask.repeat();
 
 function initPool() {
     try {
-        // Clear old
         trackApis = [];
-        updateQueue = [];
-
         var song = new LiveAPI("live_set");
         var trackIds = song.get("tracks");
         activeTrackCount = (trackIds && trackIds.length) ? (trackIds.length / 2) : 0;
 
-        // Safety cap for discovery
         var poolSize = Math.min(activeTrackCount, 32);
 
         for (var i = 0; i < poolSize; i++) {
             var api = new LiveAPI(trackCallback, "live_set tracks " + i);
             if (api) {
-                api.trackIdx = i; // Inject identity
+                api.trackIdx = i;
                 api.property = "playing_slot_index";
                 api.property = "fired_slot_index";
                 trackApis.push(api);
             }
         }
-        post("v43 Ghost Protocol: " + poolSize + " Track Observers Active.\n");
+        post("v44 Segmented Engine: " + poolSize + " Track Observers Active.\n");
     } catch (e) {
         post("Init Error: " + e + "\n");
     }
 }
 
+// THE DELTA UPDATE: Instant and independent
 function trackCallback(args) {
-    // DO NOT CREATE API OBJECTS HERE!
-    // Push index to queue and let the Task handle it later.
-    var idx = this.trackIdx;
-    if (idx !== undefined) {
-        if (updateQueue.indexOf(idx) === -1) {
-            updateQueue.push(idx);
-        }
+    if (args[0] === "playing_slot_index" || args[0] === "fired_slot_index") {
+        sendTrackData(this.trackIdx);
     }
 }
 
-function executeTrackScan(idx) {
+function sendTrackData(idx) {
     try {
         var tApi = new LiveAPI("live_set tracks " + idx);
         if (!tApi || tApi.id === "0") return;
@@ -77,7 +57,7 @@ function executeTrackScan(idx) {
                 if (clipApi.id !== "0") {
                     clips.push({
                         index: j,
-                        name: limitStr(cleanString(clipApi.get("name")), 8),
+                        name: limitStr(cleanString(clipApi.get("name")), 10),
                         color: hexify(clipApi.get("color")),
                         is_playing: clipApi.get("is_playing") == 1,
                         is_triggered: clipApi.get("is_triggered") == 1
@@ -91,7 +71,7 @@ function executeTrackScan(idx) {
             data: {
                 tracks: [{
                     index: idx,
-                    name: limitStr(cleanString(tApi.get("name")), 10),
+                    name: limitStr(cleanString(tApi.get("name")), 12),
                     color: hexify(tApi.get("color")),
                     clips: clips
                 }]
@@ -101,31 +81,41 @@ function executeTrackScan(idx) {
     } catch (e) { }
 }
 
-function fullScan() {
+// THE SEGMENTED INIT: One track per message
+function segmentedRefresh() {
     try {
+        // 1. Send Scenes first (Fast)
         var scenes = [];
         for (var i = 0; i < 12; i++) {
             sceneApi.path = "live_set scenes " + i;
             if (sceneApi.id && sceneApi.id !== "0") {
                 scenes.push({
                     index: i,
-                    name: limitStr(cleanString(sceneApi.get("name")), 10)
+                    name: limitStr(cleanString(sceneApi.get("name")), 12)
                 });
             }
         }
-
         outlet(0, JSON.stringify({ type: "metadata", data: { scenes: scenes, tracks: [] } }));
 
-        // Queue all tracks for initial population
-        for (var i = 0; i < trackApis.length; i++) {
-            updateQueue.push(i);
-        }
+        // 2. Send each track with a tiny staggered delay (stability)
+        var staggerTask = new Task(function () {
+            if (this.current < trackApis.length) {
+                sendTrackData(this.current);
+                this.current++;
+            } else {
+                arguments.callee.task.cancel();
+            }
+        }, this);
+        staggerTask.current = 0;
+        staggerTask.interval = 50; // 50ms per track = fully loaded in ~1.5s
+        staggerTask.repeat(trackApis.length);
+
     } catch (e) { }
 }
 
 function bang() {
     initPool();
-    fullScan();
+    segmentedRefresh();
 }
 
 function anything() {
@@ -142,7 +132,6 @@ function anything() {
     }
 }
 
-// Helpers
 function limitStr(str, max) {
     if (!str) return "";
     var s = String(str);
@@ -162,5 +151,4 @@ function hexify(colorVal) {
     return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
 }
 
-// Bootstrap
 initPool();

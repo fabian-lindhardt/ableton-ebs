@@ -669,16 +669,13 @@ async function sendEBS(payload) {
     }
 }
 
-// --- SESSION GRID MATRIX ---
+// --- SESSION GRID MATRIX (v44 DOM Patching) ---
 function renderGridMatrix() {
     const activeData = metadataCache;
-
     const grid = document.getElementById('session-grid');
     if (!grid || !activeData || !activeData.tracks) return;
 
-    grid.innerHTML = '';
-
-    // Update pagination text
+    // 1. Update pagination text
     const pageEl = document.getElementById('grid-page');
     if (pageEl) {
         const start = currentGridOffset + 1;
@@ -686,44 +683,74 @@ function renderGridMatrix() {
         pageEl.innerText = `Tracks ${start}-${end} / ${activeData.tracks.length}`;
     }
 
-    // 1. Render SLICE of Tracks (8 at a time)
+    // 2. Identify slice
     const trackSlice = activeData.tracks.slice(currentGridOffset, currentGridOffset + 8);
 
-    trackSlice.forEach(track => {
-        const col = document.createElement('div');
-        col.className = 'grid-column';
+    // 3. DOM Patching Logic
+    // If the number of columns doesn't match or grid is empty, do a full rebuild
+    const existingCols = grid.querySelectorAll('.grid-column:not(.master-column)');
+    if (existingCols.length !== trackSlice.length) {
+        grid.innerHTML = ''; // Full rebuild for structural changes
+    }
+
+    trackSlice.forEach((track, colIdx) => {
+        let col = grid.querySelector(`.grid-column[data-track-index="${track.index}"]`);
+
+        // Create column if it doesn't exist
+        if (!col) {
+            col = document.createElement('div');
+            col.className = 'grid-column';
+            col.dataset.trackIndex = track.index;
+            grid.appendChild(col);
+        }
+
         col.style.setProperty('--item-color', track.color);
 
-        const header = document.createElement('div');
-        header.className = 'grid-track-header';
-        header.innerText = track.name;
-        col.appendChild(header);
+        // Header Patching
+        let header = col.querySelector('.grid-track-header');
+        if (!header) {
+            header = document.createElement('div');
+            header.className = 'grid-track-header';
+            col.appendChild(header);
+        }
+        if (header.innerText !== track.name) header.innerText = track.name;
 
-        // Render slots (up to 16 now)
-        for (let i = 0; i < 16; i++) {
+        // Clip Pads Patching (Sync with first 12 slots)
+        for (let i = 0; i < 12; i++) {
+            let pad = col.querySelector(`.clip-pad[data-slot-index="${i}"]`);
+            if (!pad) {
+                pad = document.createElement('div');
+                pad.className = 'clip-pad';
+                pad.dataset.slotIndex = i;
+                col.appendChild(pad);
+            }
+
             const clip = (track.clips || []).find(c => c.index === i);
-            const pad = document.createElement('div');
-            pad.className = 'clip-pad';
 
+            // State Logic
             if (clip) {
-                pad.classList.add('has-clip');
-                pad.innerText = clip.name;
+                if (!pad.classList.contains('has-clip')) pad.classList.add('has-clip');
+                if (pad.innerText !== clip.name) pad.innerText = clip.name;
                 pad.style.setProperty('--item-color', clip.color);
-                if (clip.is_playing) pad.classList.add('playing');
-                if (clip.is_triggered) pad.classList.add('triggered');
+
+                // Active States
+                if (clip.is_playing) pad.classList.add('playing'); else pad.classList.remove('playing');
+                if (clip.is_triggered) pad.classList.add('triggered'); else pad.classList.remove('triggered');
 
                 pad.onclick = () => sendGridAction('launch_clip', { trackIndex: track.index, clipIndex: i });
             } else {
+                pad.classList.remove('has-clip', 'playing', 'triggered');
                 pad.innerText = '-';
+                pad.style.removeProperty('--item-color');
+                pad.onclick = null;
             }
-            col.appendChild(pad);
         }
-        grid.appendChild(col);
     });
 
-    // 2. Render Master Scenes (ALWAYS as the last/9th column)
-    if (activeData.scenes && activeData.scenes.length > 0) {
-        const masterCol = document.createElement('div');
+    // 4. Render Master Scenes (Persistent Column)
+    let masterCol = grid.querySelector('.master-column');
+    if (!masterCol && activeData.scenes && activeData.scenes.length > 0) {
+        masterCol = document.createElement('div');
         masterCol.className = 'grid-column master-column';
 
         const masterHeader = document.createElement('div');
@@ -731,21 +758,34 @@ function renderGridMatrix() {
         masterHeader.innerText = 'SCENES';
         masterHeader.style.setProperty('--item-color', '#00ffd2');
         masterCol.appendChild(masterHeader);
+        grid.appendChild(masterCol);
+    }
 
-        // Scan up to 16 scene pads
-        for (let i = 0; i < 16; i++) {
+    if (masterCol) {
+        for (let i = 0; i < 12; i++) {
+            let pad = masterCol.querySelector(`.clip-pad[data-scene-index="${i}"]`);
+            if (!pad) {
+                pad = document.createElement('div');
+                pad.className = 'clip-pad scene-pad';
+                pad.dataset.sceneIndex = i;
+                masterCol.appendChild(pad);
+            }
+
             const scene = activeData.scenes[i];
-            const pad = document.createElement('div');
-            pad.className = 'clip-pad scene-pad';
-
             if (scene) {
-                pad.innerText = scene.name || `Scene ${scene.index + 1}`;
+                if (pad.innerText !== (scene.name || `Scene ${scene.index + 1}`)) {
+                    pad.innerText = scene.name || `Scene ${scene.index + 1}`;
+                }
                 pad.onclick = () => sendGridAction('launch_scene', { sceneIndex: scene.index });
             } else {
                 pad.innerText = '-';
+                pad.onclick = null;
             }
-            masterCol.appendChild(pad);
         }
+    }
+
+    // Ensure Master Column is always last
+    if (masterCol && grid.lastElementChild !== masterCol) {
         grid.appendChild(masterCol);
     }
 }

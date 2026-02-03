@@ -55,5 +55,5 @@ metadata:
   namespace: ableton-ebs
 type: Opaque
 stringData:
-  TWITCH_SECRET: "L0KsD31sIuMSFCcPtQOpC2kN6YBlXXwl/iyV+o3+JxQ="
+  TWITCH_SECRET: "khM/p/gBmnGJMB0ViaJRVLBPUvq8QTA0KyFcPARFluk="
   TWITCH_CLIENT_SECRET: "xus0zndfmvlhrlqzeazyxm55oi1ft0"

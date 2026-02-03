@@ -28,6 +28,8 @@ let bridgeSocket = null;
 
 // State Cache (Key: "ch-cc", Value: val)
 const stateCache = new Map();
+// Metadata Cache (Key: track_index, Value: { name, color })
+const metadataCache = new Map();
 
 // WebSocket handling
 wss.on('connection', (ws) => {
@@ -63,6 +65,26 @@ wss.on('connection', (ws) => {
                 await broadcastToPubSub(data);
 
                 // B: Broadcast to all connected WebSockets (for local standalone testing)
+                wss.clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(data));
+                    }
+                });
+            }
+
+            // 3. Metadata from Bridge (Track names/colors)
+            if (data.type === 'metadata') {
+                console.log('Received Metadata Update:', data.data);
+
+                // Update Cache
+                if (Array.isArray(data.data)) {
+                    data.data.forEach(item => {
+                        metadataCache.set(item.index, { name: item.name, color: item.color });
+                    });
+                }
+
+                // Broadcast
+                await broadcastToPubSub(data);
                 wss.clients.forEach((client) => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify(data));
@@ -180,9 +202,13 @@ const verifyTwitchToken = (req, res, next) => {
 
 // Get Current State (Initial Sync)
 app.get('/api/state', verifyTwitchToken, (req, res) => {
-    // Convert Map to Object
+    // Convert Maps to Objects
     const stateObj = Object.fromEntries(stateCache);
-    res.json(stateObj);
+    const metadataObj = Object.fromEntries(metadataCache);
+    res.json({
+        state: stateObj,
+        metadata: metadataObj
+    });
 });
 
 const { addSessionTime, getSession, requireVip } = require('./transactions');

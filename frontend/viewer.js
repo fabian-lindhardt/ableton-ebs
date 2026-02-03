@@ -128,6 +128,8 @@ if (twitch) {
 
             if (data.type === 'sync') {
                 handleSync(data.data);
+            } else if (data.type === 'metadata') {
+                handleMetadataSync(data.data);
             }
         } catch (e) {
             console.error('PubSub Parsing Error:', e);
@@ -249,6 +251,41 @@ function handleSync(syncData) {
             }
         }
     });
+}
+
+// Handle Track Names/Colors Sync
+function handleMetadataSync(metadataArray) {
+    if (!Array.isArray(metadataArray)) return;
+
+    metadataArray.forEach(item => {
+        // Find all triggers that match this track index
+        activeTriggers.forEach(trigger => {
+            if (trigger.trackIndex === item.index) {
+                console.log(`[Metadata-Sync] Updating Trigger ${trigger.id} (Track ${item.index}) -> Name: ${item.name}, Color: ${item.color}`);
+
+                // 1. Update Label if it was default or user hasn't overridden it manually? 
+                // Mostly we just overwrite.
+                const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
+                if (wrapper) {
+                    const labelEl = wrapper.querySelector('.label');
+                    if (labelEl) labelEl.innerText = item.name;
+
+                    if (item.color) {
+                        wrapper.style.setProperty('--item-color', item.color);
+                    }
+                }
+            }
+        });
+    });
+}
+
+function applyMetadataState(metadataMap) {
+    // Map is { "0": {name, color}, "1": ... }
+    const array = Object.entries(metadataMap).map(([index, val]) => ({
+        index: parseInt(index),
+        ...val
+    }));
+    handleMetadataSync(array);
 }
 
 function renderButtons() {
@@ -625,8 +662,10 @@ async function fetchState() {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (res.ok) {
-            const state = await res.json();
-            applyState(state);
+            const data = await res.json();
+            // data is now { state: {...}, metadata: {...} }
+            if (data.state) applyState(data.state);
+            if (data.metadata) applyMetadataState(data.metadata);
         }
     } catch (e) { console.error('Failed to fetch state:', e); }
 }

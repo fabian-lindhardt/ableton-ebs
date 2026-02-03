@@ -1,6 +1,7 @@
 require('dotenv').config();
 const JZZ = require('jzz');
 const WebSocket = require('ws');
+const dgram = require('dgram');
 
 // Configuration
 const EBS_URL = process.env.EBS_URL || 'wss://abletonlivechat.flairtec.de';
@@ -87,6 +88,23 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
         } else {
             console.log(`Input Port "${MIDI_PORT_SEARCH}" not found. Sync unavailable.`);
         }
+
+        // --- UDP LISTENER (For Metadata Sync from M4L) ---
+        const udpServer = dgram.createSocket('udp4');
+        udpServer.on('message', (msg, rinfo) => {
+            try {
+                const data = JSON.parse(msg.toString());
+                if (data.type === 'metadata') {
+                    console.log(`[Metadata] Received from M4L:`, data.payload);
+                    sendToEBS({ type: 'metadata', data: data.payload });
+                }
+            } catch (e) {
+                console.warn('[Metadata] Received non-JSON or invalid UDP packet');
+            }
+        });
+        udpServer.bind(9005, () => {
+            console.log('--- UDP Metadata Listener active on Port 9005 ---');
+        });
     });
 
 // Helper: Broadcast Sync to EBS
@@ -132,15 +150,20 @@ function broadcastSync(channel, controller, value) {
 
 function sendSyncPayload(channel, controller, value) {
     console.log(`Broadcasting Sync: Ch${channel} CC${controller} Val${value}`);
-    const payload = {
+    sendToEBS({
         type: 'sync',
         data: {
             channel,
             controller,
             value
         }
-    };
-    wsConnection.send(JSON.stringify(payload));
+    });
+}
+
+function sendToEBS(payload) {
+    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+        wsConnection.send(JSON.stringify(payload));
+    }
 }
 
 // 2. Connect to EBS

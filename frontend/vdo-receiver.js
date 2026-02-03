@@ -12,7 +12,7 @@ class VdoReceiver {
         this.ws = null;
         this.iceServers = [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:vdo.flairtec.de:3478' }
+            { urls: 'stun:stun1.l.google.com:19302' }
         ];
     }
 
@@ -24,7 +24,7 @@ class VdoReceiver {
             return;
         }
 
-        // Initialize PC immediately to capture all state changes
+        // Initialize PC immediately
         await this.setupPeerConnection();
 
         // Setup Signaling (Minimal Socket.io emulation)
@@ -35,7 +35,7 @@ class VdoReceiver {
             const now = new Date().toLocaleTimeString();
             const data = e.data;
 
-            // Log ALL raw incoming packets for protocol debugging
+            // Log raw traffic for handshake debugging
             if (!data.startsWith('42')) {
                 console.log(`[VDO-Raw-In] [${now}]`, data);
             }
@@ -45,20 +45,17 @@ class VdoReceiver {
             } else if (data === '2') { // Ping
                 this.ws.send('3'); // Pong
             } else if (data.startsWith('40')) { // Socket.io CONNECTED
-                console.log("[VDO] Connected! Sending robust join sequence...");
-                const myID = "vdo_" + Math.random().toString(36).substring(7);
+                console.log("[VDO] Connected! Handshaking as Guest/Viewer...");
+                const jid = "vdo_" + Math.random().toString(36).substring(7);
 
-                // Variation 1: Socket.io 4 standard room join
-                this.emit('join-room', { room: this.roomID, id: myID, role: 'viewer' });
+                // Variation 1: VDO.Ninja Specific "join-room" with view ID and jid
+                this.emit('join-room', { room: this.roomID, view: this.roomID, jid: jid, role: 'viewer' });
 
-                // Variation 2: VDO.Ninja Specific "join" event
-                setTimeout(() => this.emit('join', { room: this.roomID, id: myID }), 500);
+                // Variation 2: Standard "join" object
+                setTimeout(() => this.emit('join', { room: this.roomID, view: this.roomID, jid: jid }), 500);
 
-                // Variation 3: Legacy "room" event
-                setTimeout(() => this.emit('room', { room: this.roomID, id: myID, role: 'viewer' }), 1000);
-
-                // Variation 4: Request offer explicitly
-                setTimeout(() => this.emit('request-offer', { room: this.roomID }), 1500);
+                // Variation 3: Explicit "request-offer" (Directly ask the host)
+                setTimeout(() => this.emit('request-offer', { room: this.roomID, view: this.roomID }), 1000);
             } else if (data.startsWith('42')) { // Socket.io MESSAGE
                 try {
                     const parsed = JSON.parse(data.substring(2));
@@ -67,16 +64,12 @@ class VdoReceiver {
                     console.log(`[VDO-Event-In] [${now}] ${event}:`, payload);
 
                     if (event === 'signal') {
-                        // VDO sends signals as { room: "...", msg: {type: "offer", sdp: "..."} }
-                        if (payload && payload.msg) {
-                            this.handleSignal(payload.msg);
-                        } else {
-                            // Some versions send signal as the payload itself
-                            this.handleSignal(payload);
-                        }
-                    } else if (event === 'ready') {
-                        console.log("[VDO] Peer is ready, requesting offer again...");
-                        this.emit('request-offer', { room: this.roomID });
+                        // Handle both {msg: {type: offer...}} and {type: offer...}
+                        const signalMsg = (payload && payload.msg) ? payload.msg : payload;
+                        if (signalMsg) this.handleSignal(signalMsg);
+                    } else if (event === 'ready' || event === 'peer-joined') {
+                        console.log("[VDO] Peer ready/joined, forcing offer request...");
+                        this.emit('request-offer', { room: this.roomID, view: this.roomID });
                     }
                 } catch (err) {
                     console.warn("[VDO] Failed to parse message:", err, data);
@@ -92,16 +85,15 @@ class VdoReceiver {
         setInterval(() => {
             const wsState = this.ws ? (['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.ws.readyState]) : 'NONE';
             const pcState = this.pc ? this.pc.connectionState : 'NONE';
-            const iceState = this.pc ? this.pc.iceConnectionState : 'NONE';
             const hasTrack = !!(this.audioElement && this.audioElement.srcObject);
             const now = new Date().toLocaleTimeString();
-            console.log(`[VDO-Diag] [${now}] WS: ${wsState}, PC: ${pcState}, ICE: ${iceState}, Track: ${hasTrack}`);
+            console.log(`[VDO-Diag] [${now}] WS: ${wsState}, PC: ${pcState}, Track: ${hasTrack}`);
 
             // Auto-resume contexts and re-join if stuck/silent
             if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
             if (wsState === 'OPEN' && pcState === 'new') {
-                console.log("[VDO-Diag] Still 'new' - re-sending join sequence...");
-                this.emit('request-offer', { room: this.roomID });
+                console.log("[VDO-Diag] Still 'new' - re-sending request-offer...");
+                this.emit('request-offer', { room: this.roomID, view: this.roomID });
             }
         }, 10000);
     }

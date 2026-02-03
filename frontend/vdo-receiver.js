@@ -1,7 +1,7 @@
 /**
  * Minimal VDO.Ninja WebRTC Receiver for Twitch Extensions
  * Bypasses iFrame CSP restrictions by using direct WebRTC.
- * Version 12: "Supreme Relay" Protocol over Socket.io v4.
+ * Version 13: "Supreme Relay" + RESTORED HEARTBEAT LOGS.
  * 🚀 Fully matched for VDO.Ninja native host-side signaling.
  */
 
@@ -16,7 +16,7 @@ class VdoReceiver {
     }
 
     async start(targetElementId) {
-        console.log("[VDO-V12] Starting Supreme Receiver for room:", this.roomID);
+        console.log("[VDO-V13] Starting Supreme Receiver for room:", this.roomID);
         this.audioElement = document.getElementById(targetElementId);
         await this.setupPeerConnection();
 
@@ -33,15 +33,19 @@ class VdoReceiver {
             } else if (data === '2') {
                 this.ws.send('3'); // Heartbeat
             } else if (data.startsWith('40')) {
-                console.log("[VDO-V12] Connected! Joining Room...");
+                console.log("[VDO-V13] Connected! Joining Room...");
                 this.emit('join', this.roomID);
                 this.emit('join-room', { room: this.roomID, role: 'viewer' });
                 this.emit('signal', { type: 'request-offer', room: this.roomID });
+
+                // Aggressive re-request
+                setTimeout(() => this.emit('signal', { type: 'request-offer', room: this.roomID }), 2000);
+
             } else if (data.startsWith('42')) {
                 try {
                     const parsed = JSON.parse(data.substring(2));
                     const [event, payload] = parsed;
-                    console.log(`[VDO-V12-In] [${now}] ${event}:`, payload);
+                    console.log(`[VDO-V13-In] [${now}] ${event}:`, payload);
 
                     if (event === 'signal') {
                         const msg = payload.msg || payload;
@@ -49,16 +53,23 @@ class VdoReceiver {
                     } else if (event === 'offer' || event === 'answer' || event === 'candidate') {
                         this.handleSignal(payload, payload.from);
                     } else if (event === 'ready') {
+                        console.log("[VDO-V13] Host Ready! Requesting offer...");
                         this.emit('signal', { type: 'request-offer', room: this.roomID });
                     }
                 } catch (err) { }
             }
         };
 
-        this.ws.onopen = () => console.log("[VDO-V12] WS Connected.");
-        this.ws.onclose = () => console.warn("[VDO-V12] WS Closed.");
+        this.ws.onopen = () => console.log("[VDO-V13] WS Connected.");
+        this.ws.onclose = () => console.warn("[VDO-V13] WS Closed.");
 
+        // Diagnostic Heartbeat (Restored!)
         setInterval(() => {
+            const wsState = this.ws ? (['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][this.ws.readyState]) : 'NONE';
+            const pcState = this.pc ? this.pc.connectionState : 'NONE';
+            const now = new Date().toLocaleTimeString();
+            console.log(`[VDO-Diag-V13] [${now}] WS: ${wsState}, PC: ${pcState}`);
+
             if (this.ws && this.ws.readyState === WebSocket.OPEN && this.pc && this.pc.connectionState === 'new') {
                 this.emit('signal', { type: 'request-offer', room: this.roomID });
             }
@@ -74,7 +85,7 @@ class VdoReceiver {
 
     async handleSignal(msg, fromSender) {
         if (!msg || !msg.type) return;
-        console.log(`[VDO-V12-Signal] Type: ${msg.type} From: ${fromSender}`);
+        console.log(`[VDO-V13-Signal] Type: ${msg.type} From: ${fromSender}`);
 
         if (msg.type === 'offer') {
             await this.pc.setRemoteDescription(new RTCSessionDescription(msg));
@@ -93,7 +104,7 @@ class VdoReceiver {
             if (e.candidate) this.emit('signal', { room: this.roomID, msg: e.candidate });
         };
         this.pc.ontrack = (e) => {
-            console.log("[VDO-V12-Track] Media Track received!");
+            console.log("[VDO-V13-Track] Media Track received!");
             if (this.audioElement) {
                 this.audioElement.srcObject = e.streams[0];
                 this.audioElement.onloadedmetadata = () => {
@@ -102,7 +113,7 @@ class VdoReceiver {
                 };
             }
         };
-        this.pc.onconnectionstatechange = () => console.log("[VDO-V12-PC-State]", this.pc.connectionState);
+        this.pc.onconnectionstatechange = () => console.log("[VDO-V13-PC-State]", this.pc.connectionState);
     }
 
     setupAudioAnalysis(stream) {

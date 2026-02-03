@@ -1,4 +1,4 @@
-// Ultra-Safe Deep Scanner v41 - Precision & Stability
+// Reactive Observer Engine v42 - Push-Style Integration
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
@@ -6,124 +6,147 @@ outlets = 1;
 
 // Global Pool
 var songApi = new LiveAPI("live_set");
-var trackApi = new LiveAPI("");
+var trackApis = []; // Pool of 32 persistent observers
 var slotApi = new LiveAPI("");
 var clipApi = new LiveAPI("");
 var sceneApi = new LiveAPI("");
 
 // State
-var currentTrackIndex = 0;
-var maxDiscoveryLimit = 32;
 var scanData = { tracks: [], scenes: [] };
-var isScanning = false;
+var isInitialized = false;
 
-var scanTask = new Task(iterateScan, this);
-
-function iterateScan() {
-    try {
-        if (!isScanning) return;
-
-        if (currentTrackIndex >= maxDiscoveryLimit) {
-            // FINISHED
-            outlet(0, JSON.stringify({ type: "metadata", data: scanData }));
-            isScanning = false;
-            post("Deep Scan Complete (" + scanData.tracks.length + " tracks)\n");
-            return;
+// 1. Initialize Observer Pool
+function initPool() {
+    for (var i = 0; i < 32; i++) {
+        var api = new LiveAPI(trackCallback, "live_set tracks " + i);
+        if (api) {
+            api.property = "playing_slot_index"; // Monitor play state
+            api.property = "fired_slot_index";   // Monitor launch state
+            trackApis.push(api);
         }
+    }
+    post("Observer Pool Initialized: 32 Tracks Bound.\n");
+}
 
-        trackApi.path = "live_set tracks " + currentTrackIndex;
+function trackCallback(args) {
+    if (!isInitialized) return;
 
-        if (trackApi.id && trackApi.id !== "0") {
-            var tName = cleanString(trackApi.get("name"));
-            var tColor = trackApi.get("color");
-            var clips = [];
+    // args[0] is property name (playing_slot_index / fired_slot_index)
+    // args[1] is the value
+    // We can't easily tell WHICH track fired from the generic callback in older Max versions
+    // So we use 'this.path' or similar if available, otherwise we re-scan the changed track logic.
+    // Optimization: When ANY track fires a state change, we trigger a small targeted scan.
+    var path = this.path;
+    if (path) {
+        var parts = path.split(" ");
+        var trackIdx = parseInt(parts[2]);
+        scanTrack(trackIdx);
+    }
+}
 
-            // Limit to 10 slots for extreme stability
-            for (var j = 0; j < 10; j++) {
-                slotApi.path = "live_set tracks " + currentTrackIndex + " clip_slots " + j;
-                if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
-                    clipApi.path = "live_set tracks " + currentTrackIndex + " clip_slots " + j + " clip";
-                    if (clipApi.id !== "0") {
-                        clips.push({
-                            index: j,
-                            name: limitStr(cleanString(clipApi.get("name")), 10),
-                            color: hexify(clipApi.get("color")),
-                            is_playing: clipApi.get("is_playing") == 1,
-                            is_triggered: clipApi.get("is_triggered") == 1
-                        });
-                    }
+function scanTrack(idx) {
+    try {
+        var tApi = new LiveAPI("live_set tracks " + idx);
+        if (!tApi || tApi.id === "0") return;
+
+        var clips = [];
+        for (var j = 0; j < 12; j++) {
+            slotApi.path = "live_set tracks " + idx + " clip_slots " + j;
+            if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
+                clipApi.path = "live_set tracks " + idx + " clip_slots " + j + " clip";
+                if (clipApi.id !== "0") {
+                    clips.push({
+                        index: j,
+                        name: limitStr(cleanString(clipApi.get("name")), 10),
+                        color: hexify(clipApi.get("color")),
+                        is_playing: clipApi.get("is_playing") == 1,
+                        is_triggered: clipApi.get("is_triggered") == 1
+                    });
                 }
             }
+        }
 
+        var update = {
+            type: "metadata",
+            data: {
+                tracks: [{
+                    index: idx,
+                    name: limitStr(cleanString(tApi.get("name")), 12),
+                    color: hexify(tApi.get("color")),
+                    clips: clips
+                }]
+            }
+        };
+        outlet(0, JSON.stringify(update));
+    } catch (e) { }
+}
+
+// Full Discovery Scan (Names, Colors, Scenes) - Triggered on load or Refresh
+function fullScan() {
+    scanData = { tracks: [], scenes: [] };
+
+    // 1. Scenes (Brute Force 16)
+    for (var i = 0; i < 16; i++) {
+        sceneApi.path = "live_set scenes " + i;
+        if (sceneApi.id && sceneApi.id !== "0") {
+            scanData.scenes.push({
+                index: i,
+                name: limitStr(cleanString(sceneApi.get("name")), 12)
+            });
+        }
+    }
+
+    // 2. Initial Track Data
+    for (var i = 0; i < 32; i++) {
+        var tApi = new LiveAPI("live_set tracks " + i);
+        if (tApi && tApi.id !== "0") {
+            var clips = [];
+            // Basic clip states
+            for (var j = 0; j < 12; j++) {
+                slotApi.path = "live_set tracks " + i + " clip_slots " + j;
+                if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
+                    clipApi.path = "live_set tracks " + i + " clip_slots " + j + " clip";
+                    clips.push({
+                        index: j,
+                        name: limitStr(cleanString(clipApi.get("name")), 10),
+                        color: hexify(clipApi.get("color")),
+                        is_playing: clipApi.get("is_playing") == 1,
+                        is_triggered: clipApi.get("is_triggered") == 1
+                    });
+                }
+            }
             scanData.tracks.push({
-                index: currentTrackIndex,
-                name: limitStr(tName, 12),
-                color: hexify(tColor),
+                index: i,
+                name: limitStr(cleanString(tApi.get("name")), 12),
+                color: hexify(tApi.get("color")),
                 clips: clips
             });
         }
-
-        currentTrackIndex++;
-        scanTask.schedule(40); // 40ms inter-track delay for stability
-
-    } catch (e) {
-        post("Iterate Error: " + e + "\n");
-        isScanning = false;
     }
-}
 
-function startScan() {
-    if (isScanning) return; // Busy Lock
-
-    isScanning = true;
-    currentTrackIndex = 0;
-    scanData = { tracks: [], scenes: [] };
-
-    try {
-        // Brute Force Scene Scan (Probing 12 scenes)
-        for (var i = 0; i < 12; i++) {
-            sceneApi.path = "live_set scenes " + i;
-            if (sceneApi.id && sceneApi.id !== "0") {
-                scanData.scenes.push({
-                    index: i,
-                    name: limitStr(cleanString(sceneApi.get("name")), 12)
-                });
-            }
-        }
-        iterateScan();
-    } catch (e) {
-        isScanning = false;
-    }
+    outlet(0, JSON.stringify({ type: "metadata", data: scanData }));
+    isInitialized = true;
 }
 
 function bang() {
-    startScan();
+    fullScan();
 }
 
 function anything() {
     var args = arrayfromargs(messagename, arguments);
-    var t = new Task(function () {
-        try {
-            var cmd = args[0];
-            if (cmd === "launch_clip") {
-                var ea = new LiveAPI("live_set tracks " + args[1] + " clip_slots " + args[2]);
-                if (ea && ea.id !== "0") ea.call("fire");
-            } else if (cmd === "launch_scene") {
-                var ea = new LiveAPI("live_set scenes " + args[1]);
-                if (ea && ea.id !== "0") ea.call("fire");
-            }
-
-            // Re-scan after a delay to show play states
-            var respawn = new Task(function () { startScan(); }, this);
-            respawn.schedule(150);
-
-        } catch (e) {
-            post("Exec Error: " + e + "\n");
-        }
-    }, this);
-    t.schedule(0);
+    var cmd = args[0];
+    if (cmd === "launch_clip") {
+        var ea = new LiveAPI("live_set tracks " + args[1] + " clip_slots " + args[2]);
+        if (ea && ea.id !== "0") ea.call("fire");
+    } else if (cmd === "launch_scene") {
+        var ea = new LiveAPI("live_set scenes " + args[1]);
+        if (ea && ea.id !== "0") ea.call("fire");
+    } else if (cmd === "refresh") {
+        fullScan();
+    }
 }
 
+// Helpers
 function limitStr(str, max) {
     if (!str) return "";
     var s = String(str);
@@ -142,3 +165,6 @@ function hexify(colorVal) {
     if (val === undefined || val === null) return "#666666";
     return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
 }
+
+// Init on load
+initPool();

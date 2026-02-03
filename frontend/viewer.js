@@ -255,23 +255,40 @@ function handleSync(syncData) {
     });
 }
 
-// Handle Track Names/Colors Sync
+// Handle Track Names/Colors Sync (v42 Delta-Merging)
 function handleMetadataSync(metadata) {
     if (!metadata) return;
 
+    if (!metadataCache) {
+        metadataCache = { tracks: [], scenes: [] };
+    }
+
     if (Array.isArray(metadata)) {
+        // Handle legacy array format
         metadata.forEach(item => {
             updateTriggerVisuals(item);
+            const idx = metadataCache.tracks.findIndex(t => t.index === item.index);
+            if (idx !== -1) metadataCache.tracks[idx] = item;
+            else metadataCache.tracks.push(item);
         });
     } else {
-        // New Object Format { tracks, scenes }
+        // Handle reactive object format { tracks, scenes }
         if (metadata.tracks) {
             metadata.tracks.forEach(track => {
                 updateTriggerVisuals(track);
+                // Delta Merge
+                const idx = metadataCache.tracks.findIndex(t => t.index === track.index);
+                if (idx !== -1) metadataCache.tracks[idx] = track;
+                else metadataCache.tracks.push(track);
             });
+            // Keep tracks sorted for consistent slicing
+            metadataCache.tracks.sort((a, b) => a.index - b.index);
         }
-        renderGridMatrix(metadata);
+        if (metadata.scenes && metadata.scenes.length > 0) {
+            metadataCache.scenes = metadata.scenes;
+        }
     }
+    renderGridMatrix();
 }
 
 function updateTriggerVisuals(item) {
@@ -653,9 +670,8 @@ async function sendEBS(payload) {
 }
 
 // --- SESSION GRID MATRIX ---
-function renderGridMatrix(metadata) {
-    if (metadata) metadataCache = metadata; // Cache for nav refreshes
-    const activeData = metadata || metadataCache;
+function renderGridMatrix() {
+    const activeData = metadataCache;
 
     const grid = document.getElementById('session-grid');
     if (!grid || !activeData || !activeData.tracks) return;

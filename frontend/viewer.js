@@ -310,10 +310,12 @@ function updateTriggerVisuals(item) {
 
 function applyMetadataState(metadataMap) {
     // Map is { "0": {name, color}, "1": ... }
-    const array = Object.entries(metadataMap).map(([index, val]) => ({
-        index: parseInt(index),
-        ...val
-    }));
+    const array = Object.entries(metadataMap)
+        .map(([index, val]) => ({
+            index: parseInt(index),
+            ...val
+        }))
+        .filter(item => !isNaN(item.index) && item.name !== undefined);
     handleMetadataSync(array);
 }
 

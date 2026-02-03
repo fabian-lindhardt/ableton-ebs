@@ -1,50 +1,70 @@
-// Reactive Observer Engine v42 - Push-Style Integration
+// Ghost Protocol v43 - Non-Blocking Queue & Single Threaded Execution
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
 outlets = 1;
 
-// Global Pool
-var songApi = new LiveAPI("live_set");
-var trackApis = []; // Pool of 32 persistent observers
+// Persistent Singleton APIs
+var trackApis = [];
 var slotApi = new LiveAPI("");
 var clipApi = new LiveAPI("");
 var sceneApi = new LiveAPI("");
 
-// State
-var scanData = { tracks: [], scenes: [] };
-var isInitialized = false;
+// State Management
+var updateQueue = [];
+var isScanning = false;
+var activeTrackCount = 0;
 
-// 1. Initialize Observer Pool
-function initPool() {
-    for (var i = 0; i < 32; i++) {
-        var api = new LiveAPI(trackCallback, "live_set tracks " + i);
-        if (api) {
-            api.property = "playing_slot_index"; // Monitor play state
-            api.property = "fired_slot_index";   // Monitor launch state
-            trackApis.push(api);
-        }
+// Update Processor Loop
+var processTask = new Task(function () {
+    if (updateQueue.length > 0) {
+        var trackIdx = updateQueue.shift();
+        executeTrackScan(trackIdx);
     }
-    post("Observer Pool Initialized: 32 Tracks Bound.\n");
+}, this);
+processTask.interval = 100; // Safe 10Hz update rate
+processTask.repeat();
+
+function initPool() {
+    try {
+        // Clear old
+        trackApis = [];
+        updateQueue = [];
+
+        var song = new LiveAPI("live_set");
+        var trackIds = song.get("tracks");
+        activeTrackCount = (trackIds && trackIds.length) ? (trackIds.length / 2) : 0;
+
+        // Safety cap for discovery
+        var poolSize = Math.min(activeTrackCount, 32);
+
+        for (var i = 0; i < poolSize; i++) {
+            var api = new LiveAPI(trackCallback, "live_set tracks " + i);
+            if (api) {
+                api.trackIdx = i; // Inject identity
+                api.property = "playing_slot_index";
+                api.property = "fired_slot_index";
+                trackApis.push(api);
+            }
+        }
+        post("v43 Ghost Protocol: " + poolSize + " Track Observers Active.\n");
+    } catch (e) {
+        post("Init Error: " + e + "\n");
+    }
 }
 
 function trackCallback(args) {
-    if (!isInitialized) return;
-
-    // args[0] is property name (playing_slot_index / fired_slot_index)
-    // args[1] is the value
-    // We can't easily tell WHICH track fired from the generic callback in older Max versions
-    // So we use 'this.path' or similar if available, otherwise we re-scan the changed track logic.
-    // Optimization: When ANY track fires a state change, we trigger a small targeted scan.
-    var path = this.path;
-    if (path) {
-        var parts = path.split(" ");
-        var trackIdx = parseInt(parts[2]);
-        scanTrack(trackIdx);
+    // DO NOT CREATE API OBJECTS HERE!
+    // Push index to queue and let the Task handle it later.
+    var idx = this.trackIdx;
+    if (idx !== undefined) {
+        if (updateQueue.indexOf(idx) === -1) {
+            updateQueue.push(idx);
+        }
     }
 }
 
-function scanTrack(idx) {
+function executeTrackScan(idx) {
     try {
         var tApi = new LiveAPI("live_set tracks " + idx);
         if (!tApi || tApi.id === "0") return;
@@ -57,7 +77,7 @@ function scanTrack(idx) {
                 if (clipApi.id !== "0") {
                     clips.push({
                         index: j,
-                        name: limitStr(cleanString(clipApi.get("name")), 10),
+                        name: limitStr(cleanString(clipApi.get("name")), 8),
                         color: hexify(clipApi.get("color")),
                         is_playing: clipApi.get("is_playing") == 1,
                         is_triggered: clipApi.get("is_triggered") == 1
@@ -66,69 +86,45 @@ function scanTrack(idx) {
             }
         }
 
-        var update = {
+        var payload = {
             type: "metadata",
             data: {
                 tracks: [{
                     index: idx,
-                    name: limitStr(cleanString(tApi.get("name")), 12),
+                    name: limitStr(cleanString(tApi.get("name")), 10),
                     color: hexify(tApi.get("color")),
                     clips: clips
                 }]
             }
         };
-        outlet(0, JSON.stringify(update));
+        outlet(0, JSON.stringify(payload));
     } catch (e) { }
 }
 
-// Full Discovery Scan (Names, Colors, Scenes) - Triggered on load or Refresh
 function fullScan() {
-    scanData = { tracks: [], scenes: [] };
-
-    // 1. Scenes (Brute Force 16)
-    for (var i = 0; i < 16; i++) {
-        sceneApi.path = "live_set scenes " + i;
-        if (sceneApi.id && sceneApi.id !== "0") {
-            scanData.scenes.push({
-                index: i,
-                name: limitStr(cleanString(sceneApi.get("name")), 12)
-            });
-        }
-    }
-
-    // 2. Initial Track Data
-    for (var i = 0; i < 32; i++) {
-        var tApi = new LiveAPI("live_set tracks " + i);
-        if (tApi && tApi.id !== "0") {
-            var clips = [];
-            // Basic clip states
-            for (var j = 0; j < 12; j++) {
-                slotApi.path = "live_set tracks " + i + " clip_slots " + j;
-                if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
-                    clipApi.path = "live_set tracks " + i + " clip_slots " + j + " clip";
-                    clips.push({
-                        index: j,
-                        name: limitStr(cleanString(clipApi.get("name")), 10),
-                        color: hexify(clipApi.get("color")),
-                        is_playing: clipApi.get("is_playing") == 1,
-                        is_triggered: clipApi.get("is_triggered") == 1
-                    });
-                }
+    try {
+        var scenes = [];
+        for (var i = 0; i < 12; i++) {
+            sceneApi.path = "live_set scenes " + i;
+            if (sceneApi.id && sceneApi.id !== "0") {
+                scenes.push({
+                    index: i,
+                    name: limitStr(cleanString(sceneApi.get("name")), 10)
+                });
             }
-            scanData.tracks.push({
-                index: i,
-                name: limitStr(cleanString(tApi.get("name")), 12),
-                color: hexify(tApi.get("color")),
-                clips: clips
-            });
         }
-    }
 
-    outlet(0, JSON.stringify({ type: "metadata", data: scanData }));
-    isInitialized = true;
+        outlet(0, JSON.stringify({ type: "metadata", data: { scenes: scenes, tracks: [] } }));
+
+        // Queue all tracks for initial population
+        for (var i = 0; i < trackApis.length; i++) {
+            updateQueue.push(i);
+        }
+    } catch (e) { }
 }
 
 function bang() {
+    initPool();
     fullScan();
 }
 
@@ -142,7 +138,7 @@ function anything() {
         var ea = new LiveAPI("live_set scenes " + args[1]);
         if (ea && ea.id !== "0") ea.call("fire");
     } else if (cmd === "refresh") {
-        fullScan();
+        bang();
     }
 }
 
@@ -166,5 +162,5 @@ function hexify(colorVal) {
     return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
 }
 
-// Init on load
+// Bootstrap
 initPool();

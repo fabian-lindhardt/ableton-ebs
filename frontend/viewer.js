@@ -586,10 +586,12 @@ function startAudioStream() {
 
     console.log("[VDO] Initializing direct WebRTC receiver for:", domain, "Room:", room);
 
-    // Create the receiver instance
-    if (!window.vdoReceiver) {
-        window.vdoReceiver = new VdoReceiver(domain, room);
+    // Use the pre-loaded receiver instance (Solution C)
+    if (window.vdoReceiver) {
+        console.log("[VDO] Starting pre-loaded AudioReceiver...");
         window.vdoReceiver.start('vdo-audio');
+    } else {
+        console.error("[VDO] vdoReceiver not found! Script load error?");
     }
 }
 
@@ -607,8 +609,16 @@ if (joinAudioBtn) {
         console.log("[VDO] Join Audio button clicked. Ensuring receiver is active...");
         if (window.vdoReceiver) {
             // Re-trigger join if needed or handle audio context resume
-            console.log("[VDO] Signaling join...");
-            window.vdoReceiver.emit('join', window.vdoReceiver.roomID);
+            console.log("[VDO] Signaling ready for Solution C...");
+            if (window.vdoReceiver.ws && window.vdoReceiver.ws.readyState === 1) {
+                window.vdoReceiver.send({
+                    type: 'viewer-ready',
+                    room: window.vdoReceiver.roomID,
+                    sender: window.vdoReceiver.myId
+                });
+            } else {
+                console.warn("[VDO] WS not ready, cannot re-signal.");
+            }
         }
     });
 }

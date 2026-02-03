@@ -1,10 +1,10 @@
-// Hardened Track Scanner & Command Guard for Twitch Ableton Sync
+// Hardened Track Scanner v34.2 - Final Stability & Accuracy
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
 outlets = 1;
 
-// Persistent API objects to prevent memory hammering/crashes
+// Persistent API objects to prevent memory hammering
 var songApi = new LiveAPI("live_set");
 var trackApi = new LiveAPI("");
 var slotApi = new LiveAPI("");
@@ -13,16 +13,22 @@ var sceneApi = new LiveAPI("");
 
 function scan() {
     try {
+        // Ensure we are attached to the actual live_set
+        songApi.path = "live_set";
+
         // 1. Scan Master Scenes
         var scenes = [];
         var sceneIds = songApi.get("scenes");
+
+        // Ableton returns IDs as "id 1 id 2" ... so length / 2
         var sceneCount = (sceneIds && sceneIds.length) ? (sceneIds.length / 2) : 0;
 
         for (var i = 0; i < sceneCount; i++) {
             sceneApi.path = "live_set scenes " + i;
+            var sName = sceneApi.get("name");
             scenes.push({
                 index: i,
-                name: cleanString(sceneApi.get("name"))
+                name: cleanString(sName)
             });
         }
 
@@ -31,15 +37,18 @@ function scan() {
         var trackIds = songApi.get("tracks");
         var trackCount = (trackIds && trackIds.length) ? (trackIds.length / 2) : 0;
 
+        // post("Scanning Set: " + trackCount + " tracks found.\n");
+
         for (var i = 0; i < trackCount; i++) {
             trackApi.path = "live_set tracks " + i;
             var trackColor = trackApi.get("color");
+            var trackName = trackApi.get("name");
 
             var clips = [];
             var clipSlots = trackApi.get("clip_slots");
             var slotCount = (clipSlots && clipSlots.length) ? (clipSlots.length / 2) : 0;
 
-            // Limit clips to first 16 scenes for stability (standard Launchpad size)
+            // Limit clips to first 16 scenes for UI performance
             var maxClips = Math.min(slotCount, 16);
 
             for (var j = 0; j < maxClips; j++) {
@@ -58,7 +67,7 @@ function scan() {
 
             tracks.push({
                 index: i,
-                name: cleanString(trackApi.get("name")),
+                name: cleanString(trackName),
                 color: hexify(trackColor),
                 clips: clips
             });
@@ -96,13 +105,11 @@ function anything() {
             if (execApi) execApi.call("fire");
         }
 
-        // Wait 100ms before re-scanning to let Ableton process the launch
-        var scanTask = new Task(scan, this);
-        scanTask.schedule(100);
-
+        // Re-scan after a short delay
+        scan();
     }, this);
 
-    t.schedule(0); // Execute on next low-priority loop
+    t.schedule(0);
 }
 
 function bang() {
@@ -110,11 +117,13 @@ function bang() {
 }
 
 function cleanString(val) {
+    if (!val) return "---";
     if (Array.isArray(val)) return val.join(" ");
     return val;
 }
 
 function hexify(colorVal) {
     var val = Array.isArray(colorVal) ? colorVal[0] : colorVal;
+    if (val === undefined || val === null) return "#666666";
     return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
 }

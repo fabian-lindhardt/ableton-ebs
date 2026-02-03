@@ -143,10 +143,8 @@ function handleSync(syncData) {
     activeTriggers.forEach((trigger) => {
         const trgCh = trigger.channel || 0;
 
-        // Compare with both 0-indexed and 1-indexed to be safe against bridge/Ableton offsets
-        const isMatch = (trgCh == channel) || (trgCh == (channel - 1)) || ((trgCh + 1) == channel);
-
-        if (isMatch && (trigger.controller == controller || trigger.controllerY == controller)) {
+        // Exact Match requested by user to support multi-channel setups
+        if (trgCh == channel && (trigger.controller == controller || trigger.controllerY == controller)) {
             console.log(`[Sync-Match!!] Updating ${trigger.label} to ${value}`);
             const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
             if (wrapper) {

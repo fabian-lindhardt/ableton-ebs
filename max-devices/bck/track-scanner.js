@@ -41,7 +41,7 @@ function scan() {
         data: currentData
     };
 
-    outlet(0, JSON.stringify(payload));
+    outlet(0, "payload", JSON.stringify(payload));
 }
 
 // Trigger scan every 5 seconds or on demand

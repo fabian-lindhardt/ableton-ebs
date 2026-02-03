@@ -64,9 +64,9 @@ wss.on('connection', (ws) => {
                 // A: Broadcast to Twitch PubSub (for real extension users)
                 await broadcastToPubSub(data);
 
-                // B: Broadcast to all connected WebSockets (for local standalone testing)
+                // B: Broadcast to all connected WebSockets (EXCEPT the bridge)
                 wss.clients.forEach((client) => {
-                    if (client.readyState === WebSocket.OPEN) {
+                    if (client.readyState === WebSocket.OPEN && client !== bridgeSocket) {
                         client.send(JSON.stringify(data));
                     }
                 });
@@ -86,7 +86,7 @@ wss.on('connection', (ws) => {
                 // Broadcast
                 await broadcastToPubSub(data);
                 wss.clients.forEach((client) => {
-                    if (client.readyState === WebSocket.OPEN) {
+                    if (client.readyState === WebSocket.OPEN && client !== bridgeSocket) {
                         client.send(JSON.stringify(data));
                     }
                 });

@@ -93,13 +93,21 @@ JZZ().or(function () { console.log('Cannot start MIDI engine!'); })
         const udpServer = dgram.createSocket('udp4');
         udpServer.on('message', (msg, rinfo) => {
             try {
-                const data = JSON.parse(msg.toString());
+                let raw = msg.toString().trim();
+                // Max sometimes prefixes with "payload " if it's sent as a message
+                if (raw.startsWith('payload ')) {
+                    raw = raw.substring(8);
+                }
+                const data = JSON.parse(raw);
                 if (data.type === 'metadata') {
-                    console.log(`[Metadata] Received from M4L:`, data.payload);
-                    sendToEBS({ type: 'metadata', data: data.payload });
+                    // Normalize data structure (handle both 'data' and 'payload' keys)
+                    const payload = data.data || data.payload;
+                    console.log(`[Metadata] Received from M4L:`, payload);
+                    sendToEBS({ type: 'metadata', data: payload });
                 }
             } catch (e) {
-                console.warn('[Metadata] Received non-JSON or invalid UDP packet');
+                console.warn('[Metadata] Received non-JSON or invalid UDP packet:', e.message);
+                console.warn('Raw Content:', msg.toString().substring(0, 50) + '...');
             }
         });
         udpServer.bind(9005, () => {

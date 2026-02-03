@@ -241,6 +241,10 @@ function handleSync(syncData) {
                     if (wrapper.updateVisual) {
                         wrapper.updateVisual(controller, value);
                     }
+                } else if (trigger.type === 'toggle') {
+                    if (wrapper.updateVisual) {
+                        wrapper.updateVisual(value);
+                    }
                 }
             }
         }
@@ -517,11 +521,20 @@ function renderButtons() {
                 isToggled = true; wrapper.classList.add('btn-active');
             }
             wrapper.innerHTML = `<div class="pad-content"><span class="label">${trigger.label}</span>${trigger.cost > 0 ? `<span class="cost">💎 ${trigger.cost}</span>` : ''}</div><div class="pad-glow"></div>`;
+            wrapper.updateVisual = (val) => {
+                const active = val >= 64;
+                triggerStates[trigger.id] = active;
+                if (active) wrapper.classList.add('btn-active');
+                else wrapper.classList.remove('btn-active');
+            };
+
             wrapper.addEventListener('click', () => {
                 if (trigger.type === 'toggle') {
-                    isToggled = !isToggled; triggerStates[trigger.id] = isToggled;
-                    if (isToggled) { wrapper.classList.add('btn-active'); sendSmartTrigger({ ...trigger, value: 127, type: 'cc' }); }
-                    else { wrapper.classList.remove('btn-active'); sendSmartTrigger({ ...trigger, value: 0, type: 'cc' }); }
+                    const currentState = triggerStates[trigger.id] || false;
+                    const newState = !currentState;
+                    triggerStates[trigger.id] = newState;
+                    wrapper.updateVisual(newState ? 127 : 0);
+                    sendSmartTrigger({ ...trigger, value: newState ? 127 : 0, type: 'cc' });
                 } else {
                     wrapper.classList.add('btn-flash'); setTimeout(() => wrapper.classList.remove('btn-flash'), 200);
                     sendSmartTrigger(trigger);

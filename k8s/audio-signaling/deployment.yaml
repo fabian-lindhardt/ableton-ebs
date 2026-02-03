@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: audio-signaling
-  namespace: vdo-ninja # Legacy namespace, kept for ingress compatibility
+  namespace: audio-signaling
 spec:
   replicas: 1
   selector:
@@ -85,7 +85,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: audio-signaling
-  namespace: vdo-ninja
+  namespace: audio-signaling
 spec:
   selector:
     app: audio-signaling

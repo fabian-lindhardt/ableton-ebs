@@ -254,28 +254,36 @@ function handleSync(syncData) {
 }
 
 // Handle Track Names/Colors Sync
-function handleMetadataSync(metadataArray) {
-    if (!Array.isArray(metadataArray)) return;
+function handleMetadataSync(metadata) {
+    if (!metadata) return;
 
-    metadataArray.forEach(item => {
-        // Find all triggers that match this track index
-        activeTriggers.forEach(trigger => {
-            if (trigger.trackIndex === item.index) {
-                console.log(`[Metadata-Sync] Updating Trigger ${trigger.id} (Track ${item.index}) -> Name: ${item.name}, Color: ${item.color}`);
+    if (Array.isArray(metadata)) {
+        metadata.forEach(item => {
+            updateTriggerVisuals(item);
+        });
+    } else {
+        // New Object Format { tracks, scenes }
+        if (metadata.tracks) {
+            metadata.tracks.forEach(track => {
+                updateTriggerVisuals(track);
+            });
+        }
+        renderGridMatrix(metadata);
+    }
+}
 
-                // 1. Update Label if it was default or user hasn't overridden it manually? 
-                // Mostly we just overwrite.
-                const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
-                if (wrapper) {
-                    const labelEl = wrapper.querySelector('.label');
-                    if (labelEl) labelEl.innerText = item.name;
-
-                    if (item.color) {
-                        wrapper.style.setProperty('--item-color', item.color);
-                    }
+function updateTriggerVisuals(item) {
+    activeTriggers.forEach(trigger => {
+        if (trigger.trackIndex === item.index) {
+            const wrapper = document.querySelector(`.pad[data-id="${trigger.id}"]`);
+            if (wrapper) {
+                const labelEl = wrapper.querySelector('.label');
+                if (labelEl) labelEl.innerText = item.name;
+                if (item.color) {
+                    wrapper.style.setProperty('--item-color', item.color);
                 }
             }
-        });
+        }
     });
 }
 
@@ -640,6 +648,78 @@ async function sendEBS(payload) {
         console.error(err);
         updateStatus('Failed to connect to EBS');
     }
+}
+
+// --- SESSION GRID MATRIX ---
+function renderGridMatrix(metadata) {
+    const grid = document.getElementById('session-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (!metadata || !metadata.tracks) return;
+
+    // 1. Render Tracks
+    metadata.tracks.forEach(track => {
+        const col = document.createElement('div');
+        col.className = 'grid-column';
+        col.style.setProperty('--item-color', track.color);
+
+        const header = document.createElement('div');
+        header.className = 'grid-track-header';
+        header.innerText = track.name;
+        col.appendChild(header);
+
+        // Render first 24 slots (matching M4L scan)
+        for (let i = 0; i < 24; i++) {
+            const clip = (track.clips || []).find(c => c.index === i);
+            const pad = document.createElement('div');
+            pad.className = 'clip-pad';
+
+            if (clip) {
+                pad.classList.add('has-clip');
+                pad.innerText = clip.name;
+                pad.style.setProperty('--item-color', clip.color);
+                if (clip.is_playing) pad.classList.add('playing');
+                if (clip.is_triggered) pad.classList.add('triggered');
+
+                pad.onclick = () => sendGridAction('launch_clip', { trackIndex: track.index, clipIndex: i });
+            } else {
+                pad.innerText = '-';
+            }
+            col.appendChild(pad);
+        }
+        grid.appendChild(col);
+    });
+
+    // 2. Render Master Scenes
+    if (metadata.scenes && metadata.scenes.length > 0) {
+        const masterCol = document.createElement('div');
+        masterCol.className = 'grid-column master-column';
+
+        const masterHeader = document.createElement('div');
+        masterHeader.className = 'grid-track-header';
+        masterHeader.innerText = 'SCENES';
+        masterHeader.style.setProperty('--item-color', '#00ffd2');
+        masterCol.appendChild(masterHeader);
+
+        metadata.scenes.forEach(scene => {
+            const pad = document.createElement('div');
+            pad.className = 'clip-pad scene-pad';
+            pad.innerText = scene.name || `Scene ${scene.index + 1}`;
+            pad.onclick = () => sendGridAction('launch_scene', { sceneIndex: scene.index });
+            masterCol.appendChild(pad);
+        });
+        grid.appendChild(masterCol);
+    }
+}
+
+async function sendGridAction(action, data) {
+    if (authToken === 'guest') {
+        alert("Please unlock the extension to launch clips!");
+        return;
+    }
+    updateStatus(`${action}...`);
+    await sendEBS({ action, midi: data });
 }
 
 function updateStatus(msg) {

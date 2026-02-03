@@ -28,8 +28,8 @@ let bridgeSocket = null;
 
 // State Cache (Key: "ch-cc", Value: val)
 const stateCache = new Map();
-// Metadata Cache (Key: track_index, Value: { name, color })
-const metadataCache = new Map();
+// Metadata Cache (Stores tracks, clips, and scenes)
+let metadataCache = { tracks: [], scenes: [] };
 
 // WebSocket handling
 wss.on('connection', (ws) => {
@@ -76,11 +76,9 @@ wss.on('connection', (ws) => {
             if (data.type === 'metadata') {
                 console.log('Received Metadata Update:', data.data);
 
-                // Update Cache
-                if (Array.isArray(data.data)) {
-                    data.data.forEach(item => {
-                        metadataCache.set(item.index, { name: item.name, color: item.color });
-                    });
+                // Update Cache (New Format: { tracks: [], scenes: [] })
+                if (data.data) {
+                    metadataCache = data.data;
                 }
 
                 // Broadcast
@@ -250,6 +248,18 @@ app.get('/api/session', verifyTwitchToken, (req, res) => {
     res.json({ success: true, session });
 });
 
+// Initial State Fetch
+app.get('/api/state', verifyTwitchToken, (req, res) => {
+    try {
+        res.json({
+            state: Object.fromEntries(stateCache),
+            metadata: metadataCache
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 // Protected Endpoint: Trigger
 // NOW PROTECTED by requireVip! 
 app.post('/api/trigger', verifyTwitchToken, requireVip, (req, res) => {
@@ -265,7 +275,7 @@ app.post('/api/trigger', verifyTwitchToken, requireVip, (req, res) => {
 
     if (bridgeSocket) {
         bridgeSocket.send(JSON.stringify({
-            type: 'midi',
+            type: action === 'trigger' ? 'midi' : action,
             data: midi
         }));
         res.json({ success: true, message: 'Command relaying to bridge' });

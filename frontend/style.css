@@ -1104,4 +1104,120 @@ input[type=range].fader-input::-moz-range-thumb {
 
 .app.is-edit-mode .pad:active {
     cursor: grabbing;
+}/* Session Grid Matrix */
+.session-section {
+    margin-top: 30px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 20px;
+    padding-bottom: 40px;
+}
+
+.grid-matrix {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 15px 5px;
+    mask-image: linear-gradient(to right, black 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, black 95%, transparent);
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-teal) transparent;
+}
+
+.grid-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 95px;
+    flex-shrink: 0;
+}
+
+.grid-track-header {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid var(--item-color, #444);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+}
+
+.clip-pad {
+    height: 34px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    padding: 4px 6px;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    user-select: none;
+    line-height: 1.1;
+    overflow: hidden;
+}
+
+.clip-pad.has-clip {
+    color: #eee;
+    border-left: 4px solid var(--item-color);
+}
+
+.clip-pad.has-clip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
+    border-color: #fff;
+}
+
+.clip-pad.playing {
+    background: var(--item-color);
+    color: #000;
+    font-weight: 800;
+    box-shadow: 0 0 15px var(--item-color);
+    animation: pulse-active 2s infinite;
+}
+
+.clip-pad.triggered {
+    animation: flash-triggered 0.5s infinite alternate;
+}
+
+/* Master/Scene Column */
+.grid-column.master-column {
+    min-width: 110px;
+    padding-left: 15px;
+    border-left: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.scene-pad {
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid var(--accent-teal);
+    border-radius: 6px;
+    font-weight: 800;
+    color: var(--accent-teal);
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+}
+
+.scene-pad:hover {
+    background: var(--accent-teal);
+    color: #000;
+    box-shadow: 0 0 20px var(--accent-teal);
+}
+
+@keyframes flash-triggered {
+    from { opacity: 0.6; }
+    to { background: #fff; opacity: 1; }
+}
+
+@keyframes pulse-active {
+    0% { box-shadow: 0 0 10px var(--item-color); }
+    50% { box-shadow: 0 0 25px var(--item-color); }
+    100% { box-shadow: 0 0 10px var(--item-color); }
 }

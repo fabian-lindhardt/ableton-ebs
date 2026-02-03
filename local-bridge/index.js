@@ -11,6 +11,8 @@ console.log('--- Twitch Ableton Local Bridge (JZZ) ---');
 
 // 1. Setup MIDI
 let midiOutput = null;
+const udpClient = dgram.createSocket('udp4');
+const M4L_CMD_PORT = 9006;
 const bridgeCache = new Map(); // Store last known values
 
 // Initialize JZZ
@@ -260,6 +262,18 @@ function handleCommand(cmd) {
         } catch (e) {
             console.error('Error sending MIDI:', e);
         }
+    } else if (cmd.type === 'launch_clip') {
+        const { trackIndex, clipIndex } = cmd.data;
+        const buffer = Buffer.from(`launch_clip ${trackIndex} ${clipIndex}`);
+        udpClient.send(buffer, M4L_CMD_PORT, '127.0.0.1', () => {
+            console.log(`[Bridge] Sent to M4L: launch_clip ${trackIndex} ${clipIndex}`);
+        });
+    } else if (cmd.type === 'launch_scene') {
+        const { sceneIndex } = cmd.data;
+        const buffer = Buffer.from(`launch_scene ${sceneIndex}`);
+        udpClient.send(buffer, M4L_CMD_PORT, '127.0.0.1', () => {
+            console.log(`[Bridge] Sent to M4L: launch_scene ${sceneIndex}`);
+        });
     }
 }
 

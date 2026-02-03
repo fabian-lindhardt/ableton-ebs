@@ -1,63 +1,51 @@
-// Hardened Track Scanner v34.2 - Final Stability & Accuracy
+// Hardened Iterative Scanner v36 - Deep Scanning with Scenes
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
 outlets = 1;
 
-// Persistent API objects to prevent memory hammering
+// Global Pool
 var songApi = new LiveAPI("live_set");
 var trackApi = new LiveAPI("");
 var slotApi = new LiveAPI("");
 var clipApi = new LiveAPI("");
 var sceneApi = new LiveAPI("");
 
-function scan() {
+// State
+var currentTrackIndex = 0;
+var totalTracks = 0;
+var scanData = { tracks: [], scenes: [] };
+var isScanning = false;
+
+var scanTask = new Task(iterateScan, this);
+
+function iterateScan() {
     try {
-        // Ensure we are attached to the actual live_set
-        songApi.path = "live_set";
+        if (!isScanning) return;
 
-        // 1. Scan Master Scenes
-        var scenes = [];
-        var sceneIds = songApi.get("scenes");
-
-        // Ableton returns IDs as "id 1 id 2" ... so length / 2
-        var sceneCount = (sceneIds && sceneIds.length) ? (sceneIds.length / 2) : 0;
-
-        for (var i = 0; i < sceneCount; i++) {
-            sceneApi.path = "live_set scenes " + i;
-            var sName = sceneApi.get("name");
-            scenes.push({
-                index: i,
-                name: cleanString(sName)
-            });
+        if (currentTrackIndex >= totalTracks) {
+            // FINISHED: Send the collected data
+            outlet(0, JSON.stringify({ type: "metadata", data: scanData }));
+            isScanning = false;
+            return;
         }
 
-        // 2. Scan Tracks & Clips
-        var tracks = [];
-        var trackIds = songApi.get("tracks");
-        var trackCount = (trackIds && trackIds.length) ? (trackIds.length / 2) : 0;
-
-        // post("Scanning Set: " + trackCount + " tracks found.\n");
-
-        for (var i = 0; i < trackCount; i++) {
-            trackApi.path = "live_set tracks " + i;
-            var trackColor = trackApi.get("color");
-            var trackName = trackApi.get("name");
-
+        trackApi.goto("live_set", "tracks", currentTrackIndex);
+        if (trackApi.id !== "0") {
+            var tName = limitStr(cleanString(trackApi.get("name")), 12);
+            var tColor = trackApi.get("color");
             var clips = [];
-            var clipSlots = trackApi.get("clip_slots");
-            var slotCount = (clipSlots && clipSlots.length) ? (clipSlots.length / 2) : 0;
 
-            // Limit clips to first 16 scenes for UI performance
-            var maxClips = Math.min(slotCount, 16);
+            var slotCount = trackApi.getcount("clip_slots");
+            var maxSlots = Math.min(slotCount, 12);
 
-            for (var j = 0; j < maxClips; j++) {
-                slotApi.path = "live_set tracks " + i + " clip_slots " + j;
-                if (slotApi.get("has_clip") == 1) {
-                    clipApi.path = "live_set tracks " + i + " clip_slots " + j + " clip";
+            for (var j = 0; j < maxSlots; j++) {
+                slotApi.goto("live_set", "tracks", currentTrackIndex, "clip_slots", j);
+                if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
+                    clipApi.goto("live_set", "tracks", currentTrackIndex, "clip_slots", j, "clip");
                     clips.push({
                         index: j,
-                        name: cleanString(clipApi.get("name")),
+                        name: limitStr(cleanString(clipApi.get("name")), 12),
                         color: hexify(clipApi.get("color")),
                         is_playing: clipApi.get("is_playing") == 1,
                         is_triggered: clipApi.get("is_triggered") == 1
@@ -65,61 +53,83 @@ function scan() {
                 }
             }
 
-            tracks.push({
-                index: i,
-                name: cleanString(trackName),
-                color: hexify(trackColor),
+            scanData.tracks.push({
+                index: currentTrackIndex,
+                name: tName,
+                color: hexify(tColor),
                 clips: clips
             });
         }
 
-        var payload = {
-            type: "metadata",
-            data: {
-                tracks: tracks,
-                scenes: scenes
-            }
-        };
+        currentTrackIndex++;
+        scanTask.schedule(40); // Safe 40ms intervals
 
-        outlet(0, JSON.stringify(payload));
-    } catch (err) {
-        post("Scan Error: " + err + "\n");
+    } catch (e) {
+        isScanning = false;
     }
 }
 
-// Handle Incoming Commands (UDP is high priority, must defer to main thread)
-function anything() {
-    var args = arrayfromargs(messagename, arguments);
+function startScan() {
+    if (isScanning) scanTask.cancel();
 
-    // Defer the execution to avoid crashing Live API
-    var t = new Task(function () {
-        var cmd = args[0];
-        if (cmd === "launch_clip") {
-            var tIdx = args[1];
-            var cIdx = args[2];
-            var execApi = new LiveAPI("live_set tracks " + tIdx + " clip_slots " + cIdx);
-            if (execApi) execApi.call("fire");
-        } else if (cmd === "launch_scene") {
-            var sIdx = args[1];
-            var execApi = new LiveAPI("live_set scenes " + sIdx);
-            if (execApi) execApi.call("fire");
+    isScanning = true;
+    currentTrackIndex = 0;
+    scanData = { tracks: [], scenes: [] };
+
+    try {
+        songApi.path = "live_set";
+        totalTracks = Math.min(songApi.getcount("tracks"), 32); // Increased to 32 tracks
+
+        // 1. Scan Master Scenes (Limit to 12)
+        var sceneCount = Math.min(songApi.getcount("scenes"), 12);
+        for (var i = 0; i < sceneCount; i++) {
+            sceneApi.goto("live_set", "scenes", i);
+            scanData.scenes.push({
+                index: i,
+                name: limitStr(cleanString(sceneApi.get("name")), 12)
+            });
         }
 
-        // Re-scan after a short delay
-        scan();
-    }, this);
-
-    t.schedule(0);
+        // 2. Start Iterative Track Scan
+        iterateScan();
+    } catch (e) {
+        isScanning = false;
+    }
 }
 
 function bang() {
-    scan();
+    startScan();
+}
+
+function anything() {
+    var args = arrayfromargs(messagename, arguments);
+    var t = new Task(function () {
+        try {
+            var cmd = args[0];
+            if (cmd === "launch_clip") {
+                var execApi = new LiveAPI("live_set tracks " + args[1] + " clip_slots " + args[2]);
+                if (execApi && execApi.id !== "0") execApi.call("fire");
+            } else if (cmd === "launch_scene") {
+                var execApi = new LiveAPI("live_set scenes " + args[1]);
+                if (execApi && execApi.id !== "0") execApi.call("fire");
+            }
+            startScan();
+        } catch (e) { }
+    }, this);
+    t.schedule(0);
+}
+
+function limitStr(str, max) {
+    if (!str) return "";
+    var s = String(str);
+    if (s.length > max) return s.substring(0, max) + "..";
+    return s;
 }
 
 function cleanString(val) {
-    if (!val) return "---";
+    if (!val) return "";
     if (Array.isArray(val)) return val.join(" ");
-    return val;
+    return String(val);
 }
 
 function hexify(colorVal) {

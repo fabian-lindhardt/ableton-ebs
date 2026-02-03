@@ -3,6 +3,8 @@ const MAX_TRIGGERS = 12;
 let activeTriggers = [];
 let authToken = '';
 let currentVdoId = null;
+let metadataCache = null;
+let currentGridOffset = 0;
 
 // MOCK CONFIGURATION for Localhost
 const MOCK_CONFIG = {
@@ -652,14 +654,26 @@ async function sendEBS(payload) {
 
 // --- SESSION GRID MATRIX ---
 function renderGridMatrix(metadata) {
+    if (metadata) metadataCache = metadata; // Cache for nav refreshes
+    const activeData = metadata || metadataCache;
+
     const grid = document.getElementById('session-grid');
-    if (!grid) return;
+    if (!grid || !activeData || !activeData.tracks) return;
+
     grid.innerHTML = '';
 
-    if (!metadata || !metadata.tracks) return;
+    // Update pagination text
+    const pageEl = document.getElementById('grid-page');
+    if (pageEl) {
+        const start = currentGridOffset + 1;
+        const end = Math.min(currentGridOffset + 8, activeData.tracks.length);
+        pageEl.innerText = `Tracks ${start}-${end}`;
+    }
 
-    // 1. Render Tracks
-    metadata.tracks.forEach(track => {
+    // 1. Render SLICE of Tracks (8 at a time)
+    const trackSlice = activeData.tracks.slice(currentGridOffset, currentGridOffset + 8);
+
+    trackSlice.forEach(track => {
         const col = document.createElement('div');
         col.className = 'grid-column';
         col.style.setProperty('--item-color', track.color);
@@ -669,8 +683,8 @@ function renderGridMatrix(metadata) {
         header.innerText = track.name;
         col.appendChild(header);
 
-        // Render first 24 slots (matching M4L scan)
-        for (let i = 0; i < 24; i++) {
+        // Render slots
+        for (let i = 0; i < 12; i++) {
             const clip = (track.clips || []).find(c => c.index === i);
             const pad = document.createElement('div');
             pad.className = 'clip-pad';
@@ -691,8 +705,8 @@ function renderGridMatrix(metadata) {
         grid.appendChild(col);
     });
 
-    // 2. Render Master Scenes
-    if (metadata.scenes && metadata.scenes.length > 0) {
+    // 2. Render Master Scenes (ALWAYS as the last/9th column)
+    if (activeData.scenes && activeData.scenes.length > 0) {
         const masterCol = document.createElement('div');
         masterCol.className = 'grid-column master-column';
 
@@ -702,7 +716,7 @@ function renderGridMatrix(metadata) {
         masterHeader.style.setProperty('--item-color', '#00ffd2');
         masterCol.appendChild(masterHeader);
 
-        metadata.scenes.forEach(scene => {
+        activeData.scenes.forEach(scene => {
             const pad = document.createElement('div');
             pad.className = 'clip-pad scene-pad';
             pad.innerText = scene.name || `Scene ${scene.index + 1}`;
@@ -710,6 +724,19 @@ function renderGridMatrix(metadata) {
             masterCol.appendChild(pad);
         });
         grid.appendChild(masterCol);
+    }
+}
+
+function shiftGrid(dir) {
+    if (!metadataCache || !metadataCache.tracks) return;
+
+    // Move in increments of 8
+    const newOffset = currentGridOffset + (dir * 8);
+
+    // Bounds check
+    if (newOffset >= 0 && newOffset < metadataCache.tracks.length) {
+        currentGridOffset = newOffset;
+        renderGridMatrix();
     }
 }
 

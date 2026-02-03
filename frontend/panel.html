@@ -70,7 +70,14 @@
 
         <!-- Session Grid Matrix (Mirroring Ableton Session View) -->
         <div class="session-section">
-            <h3>Live Session Grid</h3>
+            <div class="session-header">
+                <h3>Live Session Grid</h3>
+                <div class="grid-nav">
+                    <button class="nav-btn" onclick="shiftGrid(-1)">◀</button>
+                    <span id="grid-page">Tracks 1-8</span>
+                    <button class="nav-btn" onclick="shiftGrid(1)">▶</button>
+                </div>
+            </div>
             <div id="session-grid" class="grid-matrix">
                 <!-- Injected via viewer.js -->
             </div>

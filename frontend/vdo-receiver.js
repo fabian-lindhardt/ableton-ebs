@@ -133,17 +133,32 @@ class VdoReceiver {
             const dataArray = new Uint8Array(bufferLength);
             const meterBar = document.getElementById('vdo-meter-bar');
 
+            // 10-second diagnostic log
+            setInterval(() => {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                const avg = sum / bufferLength;
+                console.log(`[VDO-Diag] State: ${audioCtx.state}, Avg Volume: ${avg.toFixed(2)}`);
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }, 10000);
+
             const update = () => {
+                if (audioCtx.state === 'suspended') {
+                    requestAnimationFrame(update);
+                    return;
+                }
                 analyser.getByteFrequencyData(dataArray);
                 let sum = 0;
                 for (let i = 0; i < bufferLength; i++) {
                     sum += dataArray[i];
                 }
                 const average = sum / bufferLength;
-                const percent = Math.min(100, (average / 64) * 100); // Scaled for better visibility
+                // Sensitivity boost: scaling based on a lower threshold since Opus/WebRTC often has lower gain
+                const percent = Math.min(100, (average / 32) * 100);
                 if (meterBar) {
                     meterBar.style.width = percent + '%';
-                    if (percent > 90) meterBar.style.background = 'var(--accent-pink)';
+                    if (percent > 85) meterBar.style.background = 'var(--accent-pink)';
                     else meterBar.style.background = 'linear-gradient(90deg, var(--accent-teal), #fff)';
                 }
                 requestAnimationFrame(update);

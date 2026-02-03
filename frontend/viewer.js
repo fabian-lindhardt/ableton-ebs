@@ -601,6 +601,18 @@ function updateTimerDisplay() {
     document.getElementById('vip-timer').innerText = `VIP: ${m}:${s.toString().padStart(2, '0')}`;
 }
 
+const joinAudioBtn = document.getElementById('btn-join-audio');
+if (joinAudioBtn) {
+    joinAudioBtn.addEventListener('click', () => {
+        console.log("[VDO] Join Audio button clicked. Ensuring receiver is active...");
+        if (window.vdoReceiver) {
+            // Re-trigger join if needed or handle audio context resume
+            console.log("[VDO] Signaling join...");
+            window.vdoReceiver.emit('join', window.vdoReceiver.roomID);
+        }
+    });
+}
+
 const unlockBtn = document.getElementById('btn-unlock');
 if (unlockBtn) {
     console.log("Unlock button found, attaching listener.");

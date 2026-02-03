@@ -773,12 +773,43 @@ function detectPopoutMode() {
                 if (window.outerWidth < 1000) {
                     window.resizeTo(1280, 800);
                     console.log('[Layout] Attempted auto-resize to 1280x800');
+
+                    // Fallback: If resize fails (likely), show a toast
+                    setTimeout(() => {
+                        if (window.outerWidth < 1000) {
+                            showResizeToast();
+                        }
+                    }, 1000);
                 }
             } catch (e) {
                 console.warn('[Layout] Auto-resize blocked by browser:', e);
             }
         }
     }
+}
+
+// Show Resize Toast
+function showResizeToast() {
+    if (document.getElementById('resize-toast')) return;
+    const toast = document.createElement('div');
+    toast.id = 'resize-toast';
+    toast.style.cssText = `
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: var(--glass-surface); border: 1px solid var(--accent-teal);
+        color: white; padding: 10px 20px; border-radius: 50px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 2000;
+        font-family: 'Inter', sans-serif; font-size: 0.9rem;
+        display: flex; align-items: center; gap: 10px;
+        animation: slideUp 0.5s ease-out;
+    `;
+    toast.innerHTML = `<span>↔️ Resize window for best experience!</span>`;
+    document.body.appendChild(toast);
+
+    // Auto remove after 5s or when resized
+    setTimeout(() => toast.remove(), 8000);
+    window.addEventListener('resize', () => {
+        if (window.outerWidth > 1000) toast.remove();
+    });
 }
 
 // Check if current user is broadcaster

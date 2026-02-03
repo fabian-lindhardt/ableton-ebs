@@ -797,121 +797,76 @@ input[type=range].fader-input::-moz-range-thumb {
 }
 
 /* Grid Container for Pop-out */
+/* Grid Container for Pop-out (Controller Builder) */
 .app.is-popout #dynamic-triggers {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    grid-auto-rows: 100px;
+    /* 12-column robust layout for finer control */
+    grid-template-columns: repeat(12, 1fr);
+    /* Auto rows with fixed min-height for snapping */
+    grid-auto-rows: 60px;
     gap: 10px;
-    padding: 50px 0 10px 0;
+    padding: 50px 0 20px 0;
+    width: 100%;
+    margin: 0 auto;
 }
 
-/* Grid Spanning based on data attributes */
-.pad[data-grid-w="2"] {
-    grid-column: span 2;
+/* Grid Positioning (Applied via JS style) */
+/* .pad default styles handle valid grid placement automatically or via JS overrides */
+
+/* Resize Handle (Interactive) */
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, transparent 50%, var(--text-muted) 50%);
+    cursor: se-resize;
+    opacity: 0;
+    z-index: 10;
+    pointer-events: none;
+    /* Only enable in Edit Mode */
+    transition: opacity 0.2s;
 }
 
-.pad[data-grid-w="3"] {
-    grid-column: span 3;
+.pad:hover .resize-handle {
+    opacity: 0.3;
 }
 
-.pad[data-grid-w="4"] {
-    grid-column: span 4;
+.app.is-edit-mode .resize-handle {
+    opacity: 0.7;
+    pointer-events: auto;
 }
 
-.pad[data-grid-h="2"] {
-    grid-row: span 2;
+.app.is-edit-mode .resize-handle:hover {
+    opacity: 1;
+    background: linear-gradient(135deg, transparent 50%, var(--primary-color) 50%);
 }
 
-.pad[data-grid-h="3"] {
-    grid-row: span 3;
-}
-
-/* Default sizes by type in pop-out */
-.app.is-popout .type-fader {
-    grid-row: span 2;
-}
-
-.app.is-popout .type-xy {
-    grid-column: span 2;
-    grid-row: span 2;
-}
-
-/* 1x1 defaults - no extra sizing needed for knob, btn, toggle */
-
-/* Drag & Drop Styles */
+/* Drag & Drop Visuals */
 .pad.is-dragging {
-    opacity: 0.5;
-    transform: scale(1.05);
-    z-index: 1000;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 30px var(--primary-color);
+    opacity: 0.8 !important;
+    z-index: 1000 !important;
+    transform: scale(1.02);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px var(--primary-color);
+    cursor: grabbing;
 }
 
-.pad.drag-over {
-    border: 2px dashed var(--accent-teal) !important;
-    background: rgba(3, 218, 198, 0.1) !important;
+/* Edit Mode Overlay (Grid Lines) */
+.app.is-edit-mode #dynamic-triggers {
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: calc((100% - 110px) / 12 + 10px) 70px;
+    /* Approx calculation for visual guide */
+    outline: 2px dashed rgba(255, 255, 255, 0.1);
 }
 
-/* Edit Mode Indicator */
 .app.is-edit-mode .pad {
     cursor: grab;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
 }
 
 .app.is-edit-mode .pad:active {
     cursor: grabbing;
-}
-
-.app.is-edit-mode .pad::after {
-    content: "⋮⋮";
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    font-size: 10px;
-    color: var(--text-muted);
-    opacity: 0.6;
-}
-
-/* Edit Mode Toggle Button */
-.edit-mode-btn {
-    position: fixed;
-    bottom: 15px;
-    right: 15px;
-    background: var(--glass-surface);
-    border: var(--glass-border);
-    color: var(--text-primary);
-    padding: 10px 15px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    z-index: 200;
-    backdrop-filter: var(--glass-blur);
-    transition: all 0.2s;
-}
-
-.edit-mode-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 0 15px var(--primary-glow);
-}
-
-.edit-mode-btn.active {
-    background: var(--primary-color);
-    color: white;
-}
-
-/* Responsive Grid Columns */
-@media (max-width: 600px) {
-    .app.is-popout #dynamic-triggers {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-@media (min-width: 1000px) {
-    .app.is-popout #dynamic-triggers {
-        grid-template-columns: repeat(8, 1fr);
-    }
-}
-
-@media (min-width: 1400px) {
-    .app.is-popout #dynamic-triggers {
-        grid-template-columns: repeat(12, 1fr);
-    }
 }

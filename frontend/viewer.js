@@ -811,16 +811,21 @@ function toggleEditMode() {
 }
 
 // Enable Drag & Drop
+// Enable Drag & Drop (Advanced Grid Builder)
 function enableDragDrop() {
     const pads = document.querySelectorAll('#dynamic-triggers .pad');
+
+    // Add resize handles if missing
     pads.forEach(pad => {
-        pad.setAttribute('draggable', 'true');
-        pad.addEventListener('dragstart', handleDragStart);
-        pad.addEventListener('dragend', handleDragEnd);
-        pad.addEventListener('dragover', handleDragOver);
-        pad.addEventListener('dragenter', handleDragEnter);
-        pad.addEventListener('dragleave', handleDragLeave);
-        pad.addEventListener('drop', handleDrop);
+        if (!pad.querySelector('.resize-handle')) {
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            handle.addEventListener('mousedown', initResize);
+            pad.appendChild(handle);
+        }
+
+        // Use native mouse listeners for smoother "Absolute" dragging
+        pad.addEventListener('mousedown', initDrag);
     });
 }
 
@@ -828,66 +833,153 @@ function enableDragDrop() {
 function disableDragDrop() {
     const pads = document.querySelectorAll('#dynamic-triggers .pad');
     pads.forEach(pad => {
-        pad.removeAttribute('draggable');
+        pad.removeEventListener('mousedown', initDrag);
+        // We keep resize handles but they are hidden via CSS
     });
 }
 
-// Drag Handlers
-function handleDragStart(e) {
-    draggedElement = this;
-    this.classList.add('is-dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', this.dataset.id);
+// --- Interaction State ---
+let activeIteraction = null; // { type: 'drag'|'resize', el, startX, startY, startGrid: {x,y,w,h} }
+
+// Grid Constants
+const GRID_COLS = 12;
+const GRID_ROW_HEIGHT = 60; // px
+const GRID_GAP = 10;
+// We calculate col width dynamically based on container
+
+function getGridMetrics() {
+    const container = document.getElementById('dynamic-triggers');
+    const width = container.clientWidth;
+    // (width - (11 * gap)) / 12
+    const colWidth = (width - ((GRID_COLS - 1) * GRID_GAP)) / GRID_COLS;
+    return { colWidth, rowHeight: GRID_ROW_HEIGHT, gap: GRID_GAP };
 }
 
-function handleDragEnd(e) {
-    this.classList.remove('is-dragging');
-    document.querySelectorAll('.pad.drag-over').forEach(el => el.classList.remove('drag-over'));
-    draggedElement = null;
-}
+// --- Drag Logic ---
+function initDrag(e) {
+    if (e.target.classList.contains('resize-handle')) return; // Pass to resize
+    if (!isEditMode) return;
 
-function handleDragOver(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-}
+    const el = e.currentTarget;
+    const computed = window.getComputedStyle(el);
 
-function handleDragEnter(e) {
-    if (this !== draggedElement) {
-        this.classList.add('drag-over');
-    }
-}
-
-function handleDragLeave(e) {
-    this.classList.remove('drag-over');
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    this.classList.remove('drag-over');
-
-    if (draggedElement && this !== draggedElement) {
-        const container = document.getElementById('dynamic-triggers');
-        const allPads = Array.from(container.children);
-        const draggedIndex = allPads.indexOf(draggedElement);
-        const targetIndex = allPads.indexOf(this);
-
-        if (draggedIndex < targetIndex) {
-            container.insertBefore(draggedElement, this.nextSibling);
-        } else {
-            container.insertBefore(draggedElement, this);
+    activeIteraction = {
+        type: 'drag',
+        el: el,
+        startX: e.clientX,
+        startY: e.clientY,
+        startGrid: {
+            x: parseInt(computed.gridColumnStart) || 'auto',
+            y: parseInt(computed.gridRowStart) || 'auto'
         }
+    };
 
-        console.log(`[Layout] Moved trigger ${draggedElement.dataset.id} to position ${targetIndex}`);
+    el.classList.add('is-dragging');
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+}
+
+// --- Resize Logic ---
+function initResize(e) {
+    if (!isEditMode) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const el = e.target.parentElement;
+    const computed = window.getComputedStyle(el);
+    const spanCol = computed.gridColumnEnd.replace('span', '').trim();
+    const spanRow = computed.gridRowEnd.replace('span', '').trim();
+
+    activeIteraction = {
+        type: 'resize',
+        el: el,
+        startX: e.clientX,
+        startY: e.clientY,
+        startGrid: {
+            w: parseInt(spanCol) || 1,
+            h: parseInt(spanRow) || 1
+        }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+}
+
+function onMove(e) {
+    if (!activeIteraction) return;
+    const metrics = getGridMetrics();
+    const deltaX = e.clientX - activeIteraction.startX;
+    const deltaY = e.clientY - activeIteraction.startY;
+
+    if (activeIteraction.type === 'drag') {
+        // Visual feedback only (transform)
+        activeIteraction.el.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+    } else if (activeIteraction.type === 'resize') {
+        const deltaCols = Math.round(deltaX / (metrics.colWidth + metrics.gap));
+        const deltaRows = Math.round(deltaY / (metrics.rowHeight + metrics.gap));
+
+        const newW = Math.max(1, Math.min(12, activeIteraction.startGrid.w + deltaCols));
+        const newH = Math.max(1, Math.min(12, activeIteraction.startGrid.h + deltaRows));
+
+        activeIteraction.el.style.gridColumnEnd = `span ${newW}`;
+        activeIteraction.el.style.gridRowEnd = `span ${newH}`;
     }
 }
 
-// Save Layout Order to Twitch Broadcaster Config
+function onEnd(e) {
+    if (!activeIteraction) return;
+
+    const metrics = getGridMetrics();
+    const deltaX = e.clientX - activeIteraction.startX;
+    const deltaY = e.clientY - activeIteraction.startY;
+
+    if (activeIteraction.type === 'drag') {
+        // Snap to grid
+        const colsMoved = Math.round(deltaX / (metrics.colWidth + metrics.gap));
+        const rowsMoved = Math.round(deltaY / (metrics.rowHeight + metrics.gap));
+
+        // Simply update grid position (allow overlap for now - pure manual control)
+        // If current is 'auto', assume 1
+        let currentX = activeIteraction.startGrid.x === 'auto' ? 1 : activeIteraction.startGrid.x;
+        let currentY = activeIteraction.startGrid.y === 'auto' ? 1 : activeIteraction.startGrid.y;
+
+        let newX = Math.max(1, Math.min(13, currentX + colsMoved)); // 1-13
+        let newY = Math.max(1, currentY + rowsMoved);
+
+        activeIteraction.el.style.gridColumnStart = newX;
+        activeIteraction.el.style.gridRowStart = newY;
+
+        // Reset transform
+        activeIteraction.el.classList.remove('is-dragging');
+        activeIteraction.el.style.transform = '';
+    }
+
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onEnd);
+    activeIteraction = null;
+}
+
+// Save Layout MAP to Twitch Broadcaster Config
 function saveLayoutOrder() {
     const pads = document.querySelectorAll('#dynamic-triggers .pad');
-    const order = Array.from(pads).map(pad => pad.dataset.id);
+    const layoutMap = {};
+
+    pads.forEach(pad => {
+        const style = window.getComputedStyle(pad);
+        // Only save if explicitly set
+        if (pad.style.gridColumnStart || pad.style.gridRowStart) {
+            layoutMap[pad.dataset.id] = {
+                x: parseInt(pad.style.gridColumnStart) || undefined,
+                y: parseInt(pad.style.gridRowStart) || undefined,
+                w: parseInt(pad.style.gridColumnEnd.replace('span', '')) || undefined,
+                h: parseInt(pad.style.gridRowEnd.replace('span', '')) || undefined
+            };
+        }
+    });
 
     if (twitch && twitch.configuration && twitch.configuration.set) {
-        // Get existing config and add layout order
         let config = {};
         try {
             if (twitch.configuration.broadcaster && twitch.configuration.broadcaster.content) {
@@ -895,52 +987,48 @@ function saveLayoutOrder() {
             }
         } catch (e) { }
 
-        config.layoutOrder = order;
+        config.layoutMap = layoutMap; // New Key
+        delete config.layoutOrder;    // Cleanup old key
 
         twitch.configuration.set('broadcaster', '1.0', JSON.stringify(config));
-        console.log('[Layout] Saved to Broadcaster Config:', order);
+        console.log('[Layout] Saved Map to Config:', layoutMap);
     } else {
-        // Dev mode fallback: localStorage
-        localStorage.setItem('trigger_layout_order', JSON.stringify(order));
-        console.log('[Layout] Saved to localStorage (dev mode):', order);
+        localStorage.setItem('trigger_layout_map', JSON.stringify(layoutMap));
+        console.log('[Layout] Saved Map to localStorage:', layoutMap);
     }
 }
 
-// Load Layout Order from Twitch Broadcaster Config
+// Load Layout MAP
 function loadLayoutOrder() {
-    let order = null;
+    let layoutMap = null;
 
-    // Try Twitch config first
+    // 1. Try Twitch
     if (twitch && twitch.configuration && twitch.configuration.broadcaster) {
         try {
             const config = JSON.parse(twitch.configuration.broadcaster.content);
-            if (config.layoutOrder) {
-                order = config.layoutOrder;
-                console.log('[Layout] Loaded from Broadcaster Config');
-            }
+            if (config.layoutMap) layoutMap = config.layoutMap;
         } catch (e) { }
     }
 
-    // Dev mode fallback: localStorage  
-    if (!order) {
-        const savedOrder = localStorage.getItem('trigger_layout_order');
-        if (savedOrder) {
-            try {
-                order = JSON.parse(savedOrder);
-                console.log('[Layout] Loaded from localStorage (dev mode)');
-            } catch (e) { }
-        }
+    // 2. Try LocalStorage
+    if (!layoutMap) {
+        try {
+            layoutMap = JSON.parse(localStorage.getItem('trigger_layout_map'));
+        } catch (e) { }
     }
 
-    if (!order) return;
+    if (!layoutMap) return;
 
-    const container = document.getElementById('dynamic-triggers');
-    const pads = Array.from(container.querySelectorAll('.pad'));
+    console.log('[Layout] Applying Map:', layoutMap);
+    const pads = document.querySelectorAll('#dynamic-triggers .pad');
 
-    order.forEach(id => {
-        const pad = pads.find(p => p.dataset.id === id);
-        if (pad) {
-            container.appendChild(pad); // Move to end in order
+    pads.forEach(pad => {
+        const props = layoutMap[pad.dataset.id];
+        if (props) {
+            if (props.x) pad.style.gridColumnStart = props.x;
+            if (props.y) pad.style.gridRowStart = props.y;
+            if (props.w) pad.style.gridColumnEnd = `span ${props.w}`;
+            if (props.h) pad.style.gridRowEnd = `span ${props.h}`;
         }
     });
 }

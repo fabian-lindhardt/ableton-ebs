@@ -1,8 +1,8 @@
-// Segmented Reactive Engine v44.4 - Robust Single-Inlet Edition
+// Segmented Reactive Engine v44.5 - Global API Reuse & Robust Commands
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
-inlets = 1; // Simplify to single inlet for guaranteed command reception
+inlets = 1;
 outlets = 1;
 
 // Global Persistent APIs
@@ -28,9 +28,9 @@ function initPool() {
                 trackApis.push(api);
             }
         }
-        post("v44.4: Observer Pool Initialized (" + poolSize + " tracks).\n");
+        post("v44.5: Observer Pool Active (" + poolSize + " tracks).\n");
     } catch (e) {
-        post("v44.4 Init Error: " + e + "\n");
+        post("v44.5 Init Error: " + e + "\n");
     }
 }
 
@@ -66,14 +66,11 @@ function sendTrackData(idx) {
             type: "metadata",
             data: { tracks: [{ index: idx, name: limitStr(cleanString(tApi.get("name")), 12), color: hexify(tApi.get("color")), clips: clips }] }
         }));
-    } catch (e) {
-        post("v44.4 Track Scan Error (" + idx + "): " + e + "\n");
-    }
+    } catch (e) { }
 }
 
 function segmentedRefresh() {
     try {
-        post("v44.4: Starting Segmented Refresh...\n");
         var scenes = [];
         for (var i = 0; i < 12; i++) {
             sceneApi.path = "live_set scenes " + i;
@@ -88,7 +85,6 @@ function segmentedRefresh() {
                 sendTrackData(this.current);
                 this.current++;
             } else {
-                post("v44.4: Refresh Completed.\n");
                 arguments.callee.task.cancel();
             }
         }, this);
@@ -112,27 +108,31 @@ function anything() {
     var args = arrayfromargs(messagename, arguments);
     var cmd = args[0];
 
-    // Commands
+    post("v44.5 Command: " + cmd + " | Args: " + args.slice(1) + "\n");
+
     if (cmd === "launch_clip") {
         var tIdx = Number(args[1]);
         var sIdx = Number(args[2]);
         var path = "live_set tracks " + tIdx + " clip_slots " + sIdx;
-        var api = new LiveAPI(null, path);
-        if (api && api.id != 0) {
-            api.call("fire");
-            post("v44.4: Fired clip at Track " + tIdx + " Slot " + sIdx + "\n");
+
+        // REUSE GLOBAL API OBJECT (Guaranteed execution)
+        slotApi.path = path;
+        if (slotApi.id != 0) {
+            slotApi.call("fire");
+            post("v44.5: Fired Clip at " + path + "\n");
         } else {
-            post("v44.4: Failed to find clip at " + path + "\n");
+            post("v44.5: Target Slot not found: " + path + "\n");
         }
     } else if (cmd === "launch_scene") {
         var sIdx = Number(args[1]);
         var path = "live_set scenes " + sIdx;
-        var api = new LiveAPI(null, path);
-        if (api && api.id != 0) {
-            api.call("fire");
-            post("v44.4: Fired scene " + sIdx + "\n");
+
+        sceneApi.path = path;
+        if (sceneApi.id != 0) {
+            sceneApi.call("fire");
+            post("v44.5: Fired Scene at " + path + "\n");
         } else {
-            post("v44.4: Failed to find scene at " + path + "\n");
+            post("v44.5: Target Scene not found: " + path + "\n");
         }
     } else if (cmd === "refresh") {
         bang();
@@ -163,5 +163,4 @@ function hexify(colorVal) {
     return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
 }
 
-// Start
 initPool();

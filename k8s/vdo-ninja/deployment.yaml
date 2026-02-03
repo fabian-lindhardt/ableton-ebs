@@ -63,7 +63,7 @@ spec:
             - |
               npm init -y && \
               npm install express socket.io && \
-              cat <<EOF > server.js
+              cat <<'EOF' > server.js
               "use strict";
               const http = require("http");
               const express = require("express");

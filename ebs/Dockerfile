@@ -9,9 +9,8 @@ RUN npm install --production
 # Copy ebs source
 COPY ebs/ .
 
-# Copy frontend assets to where server.js expects them (../../frontend relative to ebs context or ../frontend)
-# server.js uses app.use(express.static('../frontend'));
-COPY frontend/ ../frontend/
+# Copy frontend assets to public/
+COPY frontend/ public/
 
 EXPOSE 8080
 

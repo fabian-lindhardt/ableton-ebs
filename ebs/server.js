@@ -14,7 +14,7 @@ const PORT = 8080;
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static('../frontend')); // Serve frontend files
+app.use(express.static('./public')); // Serve frontend files
 
 
 let bridgeSocket = null;

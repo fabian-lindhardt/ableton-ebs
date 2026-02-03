@@ -8,7 +8,7 @@ let currentVersion = '0.0.1'; // Default fallback
 
 // Available MIDI Types
 // Available MIDI Types
-const MIDI_TYPES = ['noteon', 'noteoff', 'cc', 'fader', 'knob', 'xypad', 'toggle', 'start', 'stop', 'pause'];
+const MIDI_TYPES = ['noteon', 'noteoff', 'cc', 'fader', 'knob', 'xypad', 'toggle', 'start', 'stop', 'pause', 'restart'];
 
 // On Init
 twitch.configuration.onChanged(() => {

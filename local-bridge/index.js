@@ -207,8 +207,13 @@ function handleCommand(cmd) {
                 midiOutput.control(ch, ctrl, val);
             } else if (action === 'start') {
                 midiOutput.noteOn(15, 126, 127);
+                setTimeout(() => midiOutput.noteOff(15, 126, 0), 100);
             } else if (action === 'stop') {
                 midiOutput.noteOn(15, 127, 127);
+                setTimeout(() => midiOutput.noteOff(15, 127, 0), 100);
+            } else if (action === 'restart') {
+                midiOutput.noteOn(15, 125, 127);
+                setTimeout(() => midiOutput.noteOff(15, 125, 0), 100);
             }
         } catch (e) {
             console.error('Error sending MIDI:', e);

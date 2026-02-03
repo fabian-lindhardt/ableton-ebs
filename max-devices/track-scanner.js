@@ -1,26 +1,23 @@
-// Segmented Reactive Engine v44 - Load Once, Sync Deltas
+// Segmented Reactive Engine v44.4 - Robust Single-Inlet Edition
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
+inlets = 1; // Simplify to single inlet for guaranteed command reception
 outlets = 1;
 
-// Persistent Singleton APIs
+// Global Persistent APIs
 var trackApis = [];
 var slotApi = new LiveAPI("");
 var clipApi = new LiveAPI("");
 var sceneApi = new LiveAPI("");
-
-// State Management
-var activeTrackCount = 0;
 
 function initPool() {
     try {
         trackApis = [];
         var song = new LiveAPI("live_set");
         var trackIds = song.get("tracks");
-        activeTrackCount = (trackIds && trackIds.length) ? (trackIds.length / 2) : 0;
-
-        var poolSize = Math.min(activeTrackCount, 32);
+        var activeCount = (trackIds && trackIds.length) ? (trackIds.length / 2) : 0;
+        var poolSize = Math.min(activeCount, 32);
 
         for (var i = 0; i < poolSize; i++) {
             var api = new LiveAPI(trackCallback, "live_set tracks " + i);
@@ -31,13 +28,12 @@ function initPool() {
                 trackApis.push(api);
             }
         }
-        post("v44 Segmented Engine: " + poolSize + " Track Observers Active.\n");
+        post("v44.4: Observer Pool Initialized (" + poolSize + " tracks).\n");
     } catch (e) {
-        post("Init Error: " + e + "\n");
+        post("v44.4 Init Error: " + e + "\n");
     }
 }
 
-// THE DELTA UPDATE: Instant and independent
 function trackCallback(args) {
     if (args[0] === "playing_slot_index" || args[0] === "fired_slot_index") {
         sendTrackData(this.trackIdx);
@@ -47,14 +43,14 @@ function trackCallback(args) {
 function sendTrackData(idx) {
     try {
         var tApi = new LiveAPI("live_set tracks " + idx);
-        if (!tApi || tApi.id === "0") return;
+        if (!tApi || tApi.id == 0) return;
 
         var clips = [];
         for (var j = 0; j < 12; j++) {
             slotApi.path = "live_set tracks " + idx + " clip_slots " + j;
-            if (slotApi.id !== "0" && slotApi.get("has_clip") == 1) {
+            if (slotApi.id != 0 && slotApi.get("has_clip") == 1) {
                 clipApi.path = "live_set tracks " + idx + " clip_slots " + j + " clip";
-                if (clipApi.id !== "0") {
+                if (clipApi.id != 0) {
                     clips.push({
                         index: j,
                         name: limitStr(cleanString(clipApi.get("name")), 10),
@@ -66,72 +62,88 @@ function sendTrackData(idx) {
             }
         }
 
-        var payload = {
+        outlet(0, JSON.stringify({
             type: "metadata",
-            data: {
-                tracks: [{
-                    index: idx,
-                    name: limitStr(cleanString(tApi.get("name")), 12),
-                    color: hexify(tApi.get("color")),
-                    clips: clips
-                }]
-            }
-        };
-        outlet(0, JSON.stringify(payload));
-    } catch (e) { }
+            data: { tracks: [{ index: idx, name: limitStr(cleanString(tApi.get("name")), 12), color: hexify(tApi.get("color")), clips: clips }] }
+        }));
+    } catch (e) {
+        post("v44.4 Track Scan Error (" + idx + "): " + e + "\n");
+    }
 }
 
-// THE SEGMENTED INIT: One track per message
 function segmentedRefresh() {
     try {
-        // 1. Send Scenes first (Fast)
+        post("v44.4: Starting Segmented Refresh...\n");
         var scenes = [];
         for (var i = 0; i < 12; i++) {
             sceneApi.path = "live_set scenes " + i;
-            if (sceneApi.id && sceneApi.id !== "0") {
-                scenes.push({
-                    index: i,
-                    name: limitStr(cleanString(sceneApi.get("name")), 12)
-                });
+            if (sceneApi.id != 0) {
+                scenes.push({ index: i, name: limitStr(cleanString(sceneApi.get("name")), 12) });
             }
         }
         outlet(0, JSON.stringify({ type: "metadata", data: { scenes: scenes, tracks: [] } }));
 
-        // 2. Send each track with a tiny staggered delay (stability)
         var staggerTask = new Task(function () {
             if (this.current < trackApis.length) {
                 sendTrackData(this.current);
                 this.current++;
             } else {
+                post("v44.4: Refresh Completed.\n");
                 arguments.callee.task.cancel();
             }
         }, this);
         staggerTask.current = 0;
-        staggerTask.interval = 50; // 50ms per track = fully loaded in ~1.5s
+        staggerTask.interval = 50;
         staggerTask.repeat(trackApis.length);
-
     } catch (e) { }
 }
 
+// HANDLERS
 function bang() {
     initPool();
     segmentedRefresh();
 }
 
+function msg_int(v) {
+    if (v == 1) bang();
+}
+
 function anything() {
     var args = arrayfromargs(messagename, arguments);
     var cmd = args[0];
+
+    // Commands
     if (cmd === "launch_clip") {
-        var ea = new LiveAPI("live_set tracks " + args[1] + " clip_slots " + args[2]);
-        if (ea && ea.id !== "0") ea.call("fire");
+        var tIdx = Number(args[1]);
+        var sIdx = Number(args[2]);
+        var path = "live_set tracks " + tIdx + " clip_slots " + sIdx;
+        var api = new LiveAPI(null, path);
+        if (api && api.id != 0) {
+            api.call("fire");
+            post("v44.4: Fired clip at Track " + tIdx + " Slot " + sIdx + "\n");
+        } else {
+            post("v44.4: Failed to find clip at " + path + "\n");
+        }
     } else if (cmd === "launch_scene") {
-        var ea = new LiveAPI("live_set scenes " + args[1]);
-        if (ea && ea.id !== "0") ea.call("fire");
+        var sIdx = Number(args[1]);
+        var path = "live_set scenes " + sIdx;
+        var api = new LiveAPI(null, path);
+        if (api && api.id != 0) {
+            api.call("fire");
+            post("v44.4: Fired scene " + sIdx + "\n");
+        } else {
+            post("v44.4: Failed to find scene at " + path + "\n");
+        }
     } else if (cmd === "refresh") {
         bang();
     }
 }
 
+function loadbang() {
+    bang();
+}
+
+// Helpers
 function limitStr(str, max) {
     if (!str) return "";
     var s = String(str);
@@ -151,4 +163,5 @@ function hexify(colorVal) {
     return "#" + ("000000" + parseInt(val).toString(16)).slice(-6);
 }
 
+// Start
 initPool();

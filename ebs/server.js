@@ -14,7 +14,14 @@ const PORT = 8080;
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static('./public')); // Serve frontend files
+app.use(express.static('./public', {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.html') || path.endsWith('.js') || path.endsWith('.css')) {
+            // Force revalidation for frontend assets
+            res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        }
+    }
+}));
 
 
 let bridgeSocket = null;

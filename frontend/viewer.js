@@ -773,7 +773,13 @@ function detectPopoutMode() {
 
 // Check if current user is broadcaster
 function isBroadcaster() {
+    // Debug Override
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('edit')) return true;
+
     if (!twitch) return true; // Dev mode
+
+    console.log('[Layout] Checking role:', twitch.viewer ? twitch.viewer.role : 'No viewer object');
     return twitch.viewer && twitch.viewer.role === 'broadcaster';
 }
 

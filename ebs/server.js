@@ -202,10 +202,9 @@ const verifyTwitchToken = (req, res, next) => {
 app.get('/api/state', verifyTwitchToken, (req, res) => {
     // Convert Maps to Objects
     const stateObj = Object.fromEntries(stateCache);
-    const metadataObj = Object.fromEntries(metadataCache);
     res.json({
         state: stateObj,
-        metadata: metadataObj
+        metadata: metadataCache
     });
 });
 

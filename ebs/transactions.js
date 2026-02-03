@@ -1,70 +1,65 @@
 const jwt = require('jsonwebtoken');
 
 // In-Memory Session Store
-// Key: userId (String), Value: { val: (milliseconds), role: 'vip' }
-// We use a simple expiration timestamp
-const sessions = new Map();
+const sessions = new Map(); // userId -> { expiresAt, sku }
 
-// Configuration
-const COST_PER_MINUTE = 20; // Example: 100 Bits = 5 Minutes
+// SKU to duration mapping (in milliseconds)
+const SKU_DURATIONS = {
+    'vip_1min': 1 * 60 * 1000,
+    'vip_5min': 5 * 60 * 1000,
+    'vip_15min': 15 * 60 * 1000,
+};
 
 // Helper: Get Session Status
 function getSession(userId) {
     const session = sessions.get(userId);
-    if (!session) return null;
+    if (!session) return { active: false };
 
     if (Date.now() > session.expiresAt) {
-        sessions.delete(userId); // Cleanup
-        return null;
+        sessions.delete(userId);
+        return { active: false };
     }
 
     return {
-        isActive: true,
+        active: true,
         expiresAt: session.expiresAt,
         remainingMs: session.expiresAt - Date.now()
     };
 }
 
-// Helper: Add Time to Session
-function addSessionTime(userId, bitsUsed) {
-    // Logic: 100 Bits = 5 Minutes
-    // 1 Bit = 3 Seconds? 
-    // Let's say 100 Bits = 300 Seconds = 300,000 ms
-    // So 1 Bit = 3000 ms
-    const msToAdd = bitsUsed * 3000;
-
-    let currentExpiresAt = Date.now();
-    const existing = sessions.get(userId);
-
-    if (existing && existing.expiresAt > Date.now()) {
-        currentExpiresAt = existing.expiresAt;
+// Helper: Add Time to Session (by SKU)
+function addSessionTime(userId, sku, transactionId) {
+    const duration = SKU_DURATIONS[sku];
+    if (!duration) {
+        console.error(`[Transactions] Unknown SKU: ${sku}`);
+        return null;
     }
 
-    const newExpiresAt = currentExpiresAt + msToAdd;
+    const now = Date.now();
+    let expiresAt;
 
-    sessions.set(userId, {
-        expiresAt: newExpiresAt,
-        role: 'vip'
-    });
+    const existing = sessions.get(userId);
+    if (existing && existing.expiresAt > now) {
+        expiresAt = existing.expiresAt + duration;
+    } else {
+        expiresAt = now + duration;
+    }
 
-    return {
-        expiresAt: newExpiresAt,
-        addedMs: msToAdd,
-        totalRemainingMs: newExpiresAt - Date.now()
-    };
+    sessions.set(userId, { expiresAt, sku, transactionId });
+    console.log(`[Transactions] VIP activated for ${userId} until ${new Date(expiresAt).toISOString()}`);
+
+    return { userId, expiresAt, duration, sku };
 }
 
-// Middleware: Verify VIP Status for Critical Actions
-// Assumes `req.user` is populated by verifyTwitchToken
+// Middleware: Require VIP for actions
 function requireVip(req, res, next) {
-    // Dev/Broadcaster Override
     if (req.user.role === 'broadcaster' || (process.env.NODE_ENV !== 'production' && req.user.role === 'external')) {
         return next();
     }
 
-    const session = getSession(req.user.user_id); // Twitch JWT uses user_id or opaque_user_id
+    const session = getSession(req.user.user_id || req.user.opaque_user_id);
 
-    if (session && session.isActive) {
+    if (session && session.active) {
         return next();
     }
 
@@ -74,8 +69,63 @@ function requireVip(req, res, next) {
     });
 }
 
+// Express Router Factory
+function createTransactionRouter(express) {
+    const router = express.Router();
+
+    // POST /api/transaction - Process Bits purchase
+    router.post('/transaction', (req, res) => {
+        const { userId, sku, transactionId } = req.body;
+
+        if (!userId || !sku) {
+            return res.status(400).json({ error: 'Missing userId or sku' });
+        }
+
+        const result = addSessionTime(userId, sku, transactionId);
+        if (!result) {
+            return res.status(400).json({ error: 'Invalid SKU' });
+        }
+
+        console.log(`[Transactions] Bits Transaction:`, result);
+        res.json({ success: true, session: result });
+    });
+
+    // GET /api/session - Check session status
+    router.get('/session', (req, res) => {
+        const userId = req.query.userId || req.user?.user_id || req.user?.opaque_user_id;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Missing userId' });
+        }
+
+        const session = getSession(userId);
+        res.json({ success: true, session });
+    });
+
+    // POST /api/dev-session - DEV: Activate without Bits
+    router.post('/dev-session', (req, res) => {
+        const { userId, durationMs } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Missing userId' });
+        }
+
+        const duration = durationMs || 5 * 60 * 1000;
+        const expiresAt = Date.now() + duration;
+
+        sessions.set(userId, { expiresAt, sku: 'dev_session' });
+        console.log(`[DEV] VIP activated for ${userId} until ${new Date(expiresAt).toISOString()}`);
+
+        res.json({ success: true, session: { userId, expiresAt, duration } });
+    });
+
+    return router;
+}
+
 module.exports = {
     getSession,
     addSessionTime,
-    requireVip
+    requireVip,
+    createTransactionRouter,
+    SKU_DURATIONS
 };

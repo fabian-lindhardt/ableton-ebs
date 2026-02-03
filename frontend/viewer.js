@@ -133,6 +133,64 @@ if (twitch) {
             console.error('PubSub Parsing Error:', e);
         }
     });
+
+    // --- BITS TRANSACTIONS ---
+    // Listen for completed Bits transactions
+    twitch.bits.onTransactionComplete((transaction) => {
+        console.log('[Bits] Transaction Complete!', transaction);
+
+        const sku = transaction.product.sku;
+        const transactionId = transaction.transactionId;
+
+        // Report to EBS
+        fetch(EBS_BASE + '/api/transaction', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + authToken
+            },
+            body: JSON.stringify({ sku, transactionId })
+        })
+            .then(r => r.json())
+            .then(data => {
+                console.log('[Bits] EBS Response:', data);
+                if (data.success && data.session) {
+                    activateVip(data.session.expiresAt);
+                }
+            })
+            .catch(e => console.error('[Bits] EBS Error:', e));
+    });
+
+    // Show Products Available for Purchase
+    twitch.bits.getProducts().then(products => {
+        console.log('[Bits] Products Available:', products);
+        window.bitsProducts = products;
+    }).catch(e => console.error('[Bits] Get Products Error:', e));
+}
+
+// Handle Unlock Button Click (Bits Purchase or Dev Session)
+function handleUnlockClick() {
+    if (!twitch) {
+        // Dev mode: activate for free
+        console.log('[DEV] Simulating VIP activation...');
+        fetch(EBS_BASE + '/api/dev-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+            body: JSON.stringify({ userId: 'dev-user', durationMs: 5 * 60 * 1000 })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    activateVip(data.session.expiresAt);
+                }
+            });
+        return;
+    }
+
+    // Use SKU 'vip_5min' for production
+    const sku = 'vip_5min';
+    console.log('[Bits] Initiating purchase for:', sku);
+    twitch.bits.useBits(sku);
 }
 
 // Handle External Sync (Ableton -> Bridge -> EBS -> Viewer)
@@ -526,7 +584,7 @@ function checkSession() {
         .then(res => res.json())
         .then(data => {
             console.log("Session Check Result:", data);
-            if (data.success && data.session && data.session.isActive) {
+            if (data.success && data.session && (data.session.active || data.session.isActive)) {
                 console.log("Active session found, activating VIP.");
                 activateVip(data.session.expiresAt);
             } else {
@@ -634,13 +692,13 @@ if (unlockBtn) {
 
         if (twitch && twitch.bits && !isLocal && !isBroadcaster) {
             console.log("Using Twitch Bits API...");
-            twitch.bits.useBits('vip-session-5min');
+            twitch.bits.useBits('vip_5min');
         } else {
             console.log("Using Transaction Simulation (EBS)...");
             fetch(EBS_API.replace('/trigger', '/transaction'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                body: JSON.stringify({ cost: 100, sku: 'dev-test' })
+                body: JSON.stringify({ sku: 'vip_5min', transactionId: 'dev-' + Date.now() })
             })
                 .then(res => {
                     console.log("Transaction response status:", res.status);

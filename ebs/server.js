@@ -184,23 +184,19 @@ const { addSessionTime, getSession, requireVip } = require('./transactions');
 
 // Transaction Handler (Frontend sends this after Bits are used)
 app.post('/api/transaction', verifyTwitchToken, (req, res) => {
-    const { cost, sku } = req.body;
+    const { sku, transactionId } = req.body;
     const userId = req.user.user_id || req.user.opaque_user_id;
 
-    if (!cost || cost <= 0) {
-        return res.status(400).json({ success: false, message: 'Invalid Bits' });
+    if (!sku) {
+        return res.status(400).json({ success: false, message: 'Missing SKU' });
     }
 
-    // Broadcaster Simulation Override
-    if (req.user.role === 'broadcaster' || !IS_PRODUCTION) {
-        console.log(`[TEST-BYPASS] Granting Free session to ${req.user.role}: ${userId}`);
-        const session = addSessionTime(userId, parseInt(cost) || 100);
-        return res.json({ success: true, session });
+    const session = addSessionTime(userId, sku, transactionId);
+    if (!session) {
+        return res.status(400).json({ success: false, message: 'Invalid SKU' });
     }
 
-    const session = addSessionTime(userId, parseInt(cost));
-    console.log(`[VIP] Added ${cost} bits for user ${userId}. Expires in ${Math.round(session.totalRemainingMs / 1000)}s`);
-
+    console.log(`[VIP] Transaction: ${sku} for user ${userId}. Expires: ${new Date(session.expiresAt).toISOString()}`);
     res.json({ success: true, session });
 });
 
@@ -209,11 +205,11 @@ app.get('/api/session', verifyTwitchToken, (req, res) => {
     const userId = req.user.user_id || req.user.opaque_user_id;
     let session = getSession(userId);
 
-    // Broadcaster always has "Tester" access to their own extension
-    if (!session && req.user.role === 'broadcaster') {
+    // Broadcaster always has VIP access for testing
+    if (!session.active && req.user.role === 'broadcaster') {
         session = {
-            isActive: true,
-            expiresAt: Date.now() + 3600000, // 1 hour dummy for testing
+            active: true,
+            expiresAt: Date.now() + 3600000, // 1 hour for testing
             isBroadcaster: true
         };
     }

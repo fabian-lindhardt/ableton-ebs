@@ -1,8 +1,8 @@
-// Segmented Reactive Engine v44.5 - Global API Reuse & Robust Commands
+// Segmented Reactive Engine v44.6 - Ultra-Robust Fix
 // Outlets: 0 -> to udpsend 127.0.0.1 9005
 
 autowatch = 1;
-inlets = 1;
+inlets = 1; // RE-ENFORCING SINGLE INLET
 outlets = 1;
 
 // Global Persistent APIs
@@ -28,9 +28,9 @@ function initPool() {
                 trackApis.push(api);
             }
         }
-        post("v44.5: Observer Pool Active (" + poolSize + " tracks).\n");
+        post("v44.6: Global Pool Ready (" + poolSize + " tracks).\n");
     } catch (e) {
-        post("v44.5 Init Error: " + e + "\n");
+        post("v44.6 Init Error: " + e + "\n");
     }
 }
 
@@ -71,6 +71,7 @@ function sendTrackData(idx) {
 
 function segmentedRefresh() {
     try {
+        post("v44.6: Initializing UI Sync...\n");
         var scenes = [];
         for (var i = 0; i < 12; i++) {
             sceneApi.path = "live_set scenes " + i;
@@ -85,6 +86,7 @@ function segmentedRefresh() {
                 sendTrackData(this.current);
                 this.current++;
             } else {
+                post("v44.6: UI Sync Complete.\n");
                 arguments.callee.task.cancel();
             }
         }, this);
@@ -104,24 +106,25 @@ function msg_int(v) {
     if (v == 1) bang();
 }
 
+// Catch-all Command Handler
 function anything() {
     var args = arrayfromargs(messagename, arguments);
     var cmd = args[0];
 
-    post("v44.5 Command: " + cmd + " | Args: " + args.slice(1) + "\n");
+    // DETAILED DEBUG LOGGING
+    post("v44.6 RECVD: " + cmd + " | args: " + args.slice(1) + " | inlet: " + inlet + "\n");
 
     if (cmd === "launch_clip") {
         var tIdx = Number(args[1]);
         var sIdx = Number(args[2]);
         var path = "live_set tracks " + tIdx + " clip_slots " + sIdx;
 
-        // REUSE GLOBAL API OBJECT (Guaranteed execution)
         slotApi.path = path;
         if (slotApi.id != 0) {
             slotApi.call("fire");
-            post("v44.5: Fired Clip at " + path + "\n");
+            post("v44.6 SUCCESS: Fired Clip at Track " + tIdx + " Slot " + sIdx + "\n");
         } else {
-            post("v44.5: Target Slot not found: " + path + "\n");
+            post("v44.6 FAIL: Clip Path invalid: " + path + "\n");
         }
     } else if (cmd === "launch_scene") {
         var sIdx = Number(args[1]);
@@ -130,9 +133,9 @@ function anything() {
         sceneApi.path = path;
         if (sceneApi.id != 0) {
             sceneApi.call("fire");
-            post("v44.5: Fired Scene at " + path + "\n");
+            post("v44.6 SUCCESS: Fired Scene " + sIdx + "\n");
         } else {
-            post("v44.5: Target Scene not found: " + path + "\n");
+            post("v44.6 FAIL: Scene Path invalid: " + path + "\n");
         }
     } else if (cmd === "refresh") {
         bang();
@@ -140,6 +143,7 @@ function anything() {
 }
 
 function loadbang() {
+    post("v44.6: Loadbang Init.\n");
     bang();
 }
 
@@ -164,3 +168,4 @@ function hexify(colorVal) {
 }
 
 initPool();
+post("v44.6: Ready. Check Max Console for Input Logs.\n");

@@ -87,7 +87,32 @@ function renderTriggers() {
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-delete';
         delBtn.innerText = '🗑️';
-        delBtn.addEventListener('click', () => deleteTrigger(index));
+
+        // Custom Confirm Logic (since confirm() is blocked in sandbox)
+        let confirmDelete = false;
+        delBtn.addEventListener('click', function () {
+            if (!confirmDelete) {
+                confirmDelete = true;
+                this.innerText = 'Delete?';
+                this.style.backgroundColor = '#ff4444';
+
+                // Reset after 3s
+                setTimeout(() => {
+                    if (document.body.contains(this)) { // Check if still in DOM
+                        confirmDelete = false;
+                        this.innerText = '🗑️';
+                        this.style.backgroundColor = '';
+                    }
+                }, 3000);
+            } else {
+                // Confirmed
+                currentConfig.triggers.splice(index, 1);
+                saveConfig();
+                renderTriggers();
+                // If editing this one, cancel edit
+                if (parseInt(document.getElementById('edit-index').value) == index) cancelEdit();
+            }
+        });
 
         actions.appendChild(editBtn);
         actions.appendChild(delBtn);
@@ -220,19 +245,10 @@ function cancelEdit() {
 }
 
 // Delete trigger logic
+// Delete trigger logic (handled inside renderTriggers event listener for simplicity)
 function deleteTrigger(index) {
-    if (confirm('Delete this trigger?')) {
-        currentConfig.triggers.splice(index, 1);
-        saveConfig();
-        renderTriggers();
-
-        // If we were editing the deleted item, cancel edit
-        if (parseInt(document.getElementById('edit-index').value) == index) {
-            cancelEdit();
-        }
-    } else {
-        console.log('Deletion cancelled by user');
-    }
+    // Legacy placeholder - logic moved to inline listener to avoid scope issues
+    console.log("Delete requested for index " + index);
 }
 
 // Save to Twitch Configuration Service

@@ -31,8 +31,24 @@ const stateCache = new Map();
 // Metadata Cache (Stores tracks, clips, and scenes)
 let metadataCache = { tracks: [], scenes: [] };
 
+// Heartbeat Interval (Ping every 30s to keep connection alive through Nginx)
+const interval = setInterval(function ping() {
+    wss.clients.forEach(function each(ws) {
+        if (ws.isAlive === false) return ws.terminate();
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('close', function close() {
+    clearInterval(interval);
+});
+
 // WebSocket handling
 wss.on('connection', (ws) => {
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
+
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);

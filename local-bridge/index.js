@@ -263,6 +263,27 @@ function handleCommand(cmd) {
         } catch (e) {
             console.error('Error sending MIDI:', e);
         }
+    } else if (cmd.type === 'start') {
+        // Transport: Start -> MIDI Note On
+        try {
+            midiOutput.noteOn(15, 126, 127);
+            setTimeout(() => midiOutput.noteOff(15, 126, 0), 100);
+            console.log('[Bridge] MIDI Start: Note 126');
+        } catch (e) { console.error('Error sending MIDI:', e); }
+    } else if (cmd.type === 'stop') {
+        // Transport: Stop -> MIDI Note On
+        try {
+            midiOutput.noteOn(15, 127, 127);
+            setTimeout(() => midiOutput.noteOff(15, 127, 0), 100);
+            console.log('[Bridge] MIDI Stop: Note 127');
+        } catch (e) { console.error('Error sending MIDI:', e); }
+    } else if (cmd.type === 'restart') {
+        // Transport: Restart -> MIDI Note On
+        try {
+            midiOutput.noteOn(15, 125, 127);
+            setTimeout(() => midiOutput.noteOff(15, 125, 0), 100);
+            console.log('[Bridge] MIDI Restart: Note 125');
+        } catch (e) { console.error('Error sending MIDI:', e); }
     } else if (cmd.type === 'launch_clip') {
         const { trackIndex, clipIndex } = cmd.data;
         const oscMsg = osc.writePacket({
@@ -285,6 +306,17 @@ function handleCommand(cmd) {
         });
         udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => {
             console.log(`[Bridge] OSC to M4L: /launch_scene ${sceneIndex}`);
+        });
+    } else if (cmd.type === 'stop_track') {
+        const { trackIndex } = cmd.data;
+        const oscMsg = osc.writePacket({
+            address: '/stop_track',
+            args: [
+                { type: 'i', value: trackIndex }
+            ]
+        });
+        udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => {
+            console.log(`[Bridge] OSC to M4L: /stop_track ${trackIndex}`);
         });
     }
 }

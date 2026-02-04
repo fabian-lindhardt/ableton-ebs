@@ -131,6 +131,12 @@ function anything() {
                 sceneApi.call("fire");
                 post("v46: FIRED SCENE " + args[0] + "\n");
             }
+        } else if (address === "/stop_track" && args.length >= 1) {
+            var trackApi = new LiveAPI("live_set tracks " + args[0]);
+            if (trackApi.id != 0) {
+                trackApi.call("stop_all_clips");
+                post("v46: STOPPED TRACK " + args[0] + "\n");
+            }
         }
     } else if (address === "refresh") {
         bang();

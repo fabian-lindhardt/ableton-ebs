@@ -757,12 +757,25 @@ function renderGridMatrix() {
 
                 pad.onclick = () => sendGridAction('launch_clip', { trackIndex: track.index, clipIndex: i });
             } else {
+                // Empty slot - can be used for recording
                 pad.classList.remove('has-clip', 'playing', 'triggered');
-                pad.innerText = '-';
+                pad.classList.add('empty-slot');
+                pad.innerText = '○';
                 pad.style.removeProperty('--item-color');
-                pad.onclick = null;
+                // Click on empty slot to launch/record
+                pad.onclick = () => sendGridAction('launch_clip', { trackIndex: track.index, clipIndex: i });
             }
         }
+
+        // Add Stop Button at the end of each track column
+        let stopBtn = col.querySelector('.stop-button');
+        if (!stopBtn) {
+            stopBtn = document.createElement('div');
+            stopBtn.className = 'clip-pad stop-button';
+            stopBtn.innerText = '⬜';
+            col.appendChild(stopBtn);
+        }
+        stopBtn.onclick = () => sendGridAction('stop_track', { trackIndex: track.index });
     });
 
     // 4. Render Master Scenes (Persistent Column)

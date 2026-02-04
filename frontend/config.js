@@ -8,7 +8,7 @@ let currentVersion = '33'; // Match Console version
 
 // Available MIDI Types
 // Available MIDI Types
-const MIDI_TYPES = ['noteon', 'noteoff', 'cc', 'fader', 'knob', 'xypad', 'toggle', 'start', 'stop', 'pause', 'restart'];
+const MIDI_TYPES = ['noteon', 'noteoff', 'cc', 'fader', 'knob', 'xypad', 'toggle', 'start', 'stop', 'pause', 'restart', 'ableton_play', 'ableton_stop', 'ableton_continue'];
 
 // On Init
 twitch.configuration.onChanged(() => {
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const valInput = document.getElementById('new-value');
         const velInput = document.getElementById('new-velocity');
 
-        if (type === 'start' || type === 'stop') {
+        if (type === 'start' || type === 'stop' || type === 'ableton_play' || type === 'ableton_stop' || type === 'ableton_continue') {
             valInput.disabled = true;
             velInput.disabled = true;
         } else {

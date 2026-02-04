@@ -318,6 +318,15 @@ function handleCommand(cmd) {
         udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => {
             console.log(`[Bridge] OSC to M4L: /stop_track ${trackIndex}`);
         });
+    } else if (cmd.type === 'ableton_play') {
+        const oscMsg = osc.writePacket({ address: '/transport_play', args: [] });
+        udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => console.log('[Bridge] OSC to M4L: /transport_play'));
+    } else if (cmd.type === 'ableton_stop') {
+        const oscMsg = osc.writePacket({ address: '/transport_stop', args: [] });
+        udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => console.log('[Bridge] OSC to M4L: /transport_stop'));
+    } else if (cmd.type === 'ableton_continue') {
+        const oscMsg = osc.writePacket({ address: '/transport_continue', args: [] });
+        udpClient.send(Buffer.from(oscMsg), M4L_CMD_PORT, '127.0.0.1', () => console.log('[Bridge] OSC to M4L: /transport_continue'));
     }
 }
 

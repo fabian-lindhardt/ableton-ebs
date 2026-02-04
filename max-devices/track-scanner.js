@@ -137,7 +137,20 @@ function anything() {
                 trackApi.call("stop_all_clips");
                 post("v46: STOPPED TRACK " + args[0] + "\n");
             }
+        } else if (address === "/transport_play") {
+            var song = new LiveAPI("live_set");
+            song.call("start_playing");
+            post("v46: PLAY\n");
+        } else if (address === "/transport_stop") {
+            var song = new LiveAPI("live_set");
+            song.call("stop_playing");
+            post("v46: STOP\n");
+        } else if (address === "/transport_continue") {
+            var song = new LiveAPI("live_set");
+            song.call("continue_playing");
+            post("v46: CONTINUE\n");
         }
+
     } else if (address === "refresh") {
         bang();
     }

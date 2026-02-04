@@ -566,13 +566,16 @@ function renderButtons() {
             document.addEventListener('touchmove', (e) => { if (wrapper.isDragging) updateXY(e.touches[0].clientX, e.touches[0].clientY); });
             document.addEventListener('touchend', () => { wrapper.isDragging = false; });
 
-        } else if (['start', 'stop', 'pause', 'restart'].includes(trigger.type)) {
+        } else if (['start', 'stop', 'pause', 'restart', 'ableton_play', 'ableton_stop', 'ableton_continue'].includes(trigger.type)) {
             wrapper.classList.add('type-transport');
 
             let icon = '▶';
             if (trigger.type === 'stop') icon = '◼';
             if (trigger.type === 'pause') icon = '⏸';
             if (trigger.type === 'restart') icon = '⏮';
+            if (trigger.type === 'ableton_play') icon = '▶';
+            if (trigger.type === 'ableton_stop') icon = '◼';
+            if (trigger.type === 'ableton_continue') icon = '⏯';
 
             wrapper.innerHTML = `
                 <div class="pad-inner transport-inner">

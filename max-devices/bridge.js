@@ -1,9 +1,94 @@
 require('dotenv').config();
 const max = require('max-api');
 const WebSocket = require('ws');
+const JZZ = require('jzz');
+
+// MIDI Output via JZZ
+let midiOutput = null;
+let midiInput = null;
+let jzzEngine = null;
+let midiPortName = 'loopMIDI Port'; // Default, can be changed via set_midi_port
+
+// Function to connect/reconnect MIDI ports
+function connectMidiPorts(portSearch) {
+    if (!jzzEngine) {
+        max.post('JZZ: Engine not ready yet');
+        return;
+    }
+
+    const info = jzzEngine.info();
+    max.post('JZZ: Searching for port: ' + portSearch);
+    max.post('JZZ: Available MIDI Outputs: ' + info.outputs.map(x => x.name).join(', '));
+
+    // Close existing connections
+    if (midiOutput) {
+        try { midiOutput.close(); } catch (e) { }
+        midiOutput = null;
+    }
+    if (midiInput) {
+        try { midiInput.close(); } catch (e) { }
+        midiInput = null;
+    }
+
+    // --- MIDI OUTPUT ---
+    const outPortName = info.outputs.find(x => x.name.includes(portSearch))?.name;
+    if (outPortName) {
+        jzzEngine.openMidiOut(outPortName).or(function () {
+            max.post('JZZ: Failed to open MIDI output: ' + outPortName);
+        }).and(function () {
+            max.post('JZZ: Connected to MIDI Output: ' + outPortName);
+            midiOutput = this;
+        });
+    } else {
+        max.post('JZZ: MIDI Port "' + portSearch + '" (output) not found!');
+    }
+
+    // --- MIDI INPUT (for sync back to Twitch) ---
+    const inPortName = info.inputs.find(x => x.name.includes(portSearch))?.name;
+    if (inPortName) {
+        jzzEngine.openMidiIn(inPortName).or(function () {
+            max.post('JZZ: Failed to open MIDI input: ' + inPortName);
+        }).and(function () {
+            max.post('JZZ: Connected to MIDI Input: ' + inPortName);
+            midiInput = this;
+
+            // Listen for incoming MIDI (CC messages from Ableton)
+            this.connect(function (msg) {
+                if (msg && msg.length >= 3) {
+                    const status = msg[0];
+                    // CC is range 0xB0 - 0xBF (176 - 191)
+                    if (status >= 176 && status <= 191) {
+                        const channel = (status & 0x0F) + 1;
+                        const controller = msg[1];
+                        const value = msg[2];
+
+                        max.post(`JZZ IN: Ch${channel} CC${controller} Val${value}`);
+
+                        // Update cache and broadcast to Twitch (0-indexed channel)
+                        const ch0 = channel - 1; // Convert to 0-indexed
+                        const key = `${ch0}-${controller}`;
+                        bridgeCache.set(key, value);
+                        broadcastSync(ch0, controller, value);
+                    }
+                }
+            });
+        });
+    } else {
+        max.post('JZZ: MIDI Port "' + portSearch + '" (input) not found!');
+    }
+}
+
+// Initialize JZZ MIDI
+JZZ().or(function () { max.post('JZZ: Cannot start MIDI engine!'); })
+    .and(function () {
+        jzzEngine = this;
+        max.post('JZZ: Engine started');
+        // Connect with default port
+        connectMidiPorts(midiPortName);
+    });
 
 // Configuration
-// Allow overriding via Max message or .env
+// Allow overriding via Max messbage or .env
 let EBS_URL = process.env.EBS_URL || 'wss://abletonlivechat.flairtec.de';
 
 let wsConnection = null;
@@ -14,6 +99,9 @@ const SYNC_RATE_LIMIT = 50; // 20Hz updates for smoothness without flooding
 max.post(`--- Twitch Ableton Bridge (Node.js) ---`);
 max.post(`EBS URL: ${EBS_URL}`);
 
+// Signal that the node script is ready to receive messages
+max.outlet('status', 'ready');
+
 // --- MAX HANDLERS ---
 
 // Allow changing URL dynamically
@@ -22,6 +110,15 @@ max.addHandler('set_url', (url) => {
         EBS_URL = url;
         max.post(`EBS URL updated to: ${EBS_URL}`);
         connectToEBS(); // Reconnect
+    }
+});
+
+// Allow changing MIDI port dynamically
+max.addHandler('set_midi_port', (portName) => {
+    if (portName && typeof portName === 'string') {
+        midiPortName = portName;
+        max.post(`MIDI Port updated to: ${midiPortName}`);
+        connectMidiPorts(midiPortName);
     }
 });
 
@@ -92,6 +189,7 @@ function connectToEBS() {
     wsConnection.on('message', (data) => {
         try {
             const msg = JSON.parse(data);
+            max.post(`WS IN: ${JSON.stringify(msg).substring(0, 100)}`);
             handleCommand(msg);
         } catch (e) {
             max.post(`[Error] Parsing Message: ${e.message}`);
@@ -148,6 +246,7 @@ function broadcastSync(channel, controller, value) {
 }
 
 function sendSyncPayload(channel, controller, value) {
+    max.post(`SYNC OUT: Ch${channel} CC${controller} Val${value}`);
     sendToEBS({
         type: 'sync',
         data: { channel, controller, value }
@@ -170,6 +269,17 @@ function handleCommand(cmd) {
             const ctrl = parseInt(controller) || 1;
             const val = parseInt(value) || 0;
             max.post(`MIDI: CC Ch:${ch} Ctrl:${ctrl} Val:${val}`);
+
+            // Send via JZZ directly to loopMIDI
+            if (midiOutput) {
+                const statusByte = 0xB0 + ((ch - 1) & 0x0F); // CC status + channel
+                midiOutput.send([statusByte, ctrl, val]);
+                max.post(`JZZ: Sent CC to loopMIDI`);
+            } else {
+                max.post('JZZ: MIDI output not available');
+            }
+
+            // Also output to Max for visual feedback
             max.outlet('midi', 'cc', ch, ctrl, val);
         }
     } else if (cmd.type === 'start' || cmd.type === 'ableton_play') {

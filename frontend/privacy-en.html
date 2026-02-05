@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Ableton Live Controller Extension</title>
+    <style>
+        :root {
+            --bg-primary: #0e0e10;
+            --bg-secondary: #18181b;
+            --text-primary: #efeff1;
+            --text-secondary: #adadb8;
+            --accent: #9147ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 2rem;
+            margin-bottom: 10px;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 15px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: var(--text-primary);
+            font-size: 1.3rem;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-left: 15px;
+            border-left: 3px solid var(--accent);
+        }
+
+        p,
+        li {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        ul {
+            margin-left: 25px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        strong {
+            color: var(--text-primary);
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .highlight-box {
+            background: rgba(145, 71, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .lang-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .lang-switch a {
+            background: var(--bg-primary);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .lang-switch a.active {
+            background: var(--accent);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="lang-switch">
+            <a href="privacy-en.html" class="active">English</a>
+            <a href="privacy.html">Deutsch</a>
+            <a href="privacy-es.html">Español</a>
+            <a href="privacy-fr.html">Français</a>
+            <a href="privacy-pt.html">Português</a>
+        </div>
+
+        <h1>🔒 Privacy Policy</h1>
+        <p class="subtitle">Ableton Live Controller - Twitch Extension | Last Updated: February 2026</p>
+
+        <h2>1. Data Controller</h2>
+        <p><strong>Flairtec</strong><br>Email: <a href="mailto:info@flairtec.de">info@flairtec.de</a><br>Website: <a
+                href="https://flairtec.de" target="_blank">https://flairtec.de</a></p>
+
+        <h2>2. Data We Collect</h2>
+        <div class="highlight-box">
+            <strong>Collected Data:</strong>
+            <ul>
+                <li><strong>Twitch User ID</strong> – For authentication and VIP session management</li>
+                <li><strong>MIDI Control Data</strong> – Actions like fader, knob, or button inputs</li>
+                <li><strong>Transaction Data</strong> – For Bits purchases to unlock VIP access</li>
+            </ul>
+        </div>
+
+        <h2>3. Purpose of Data Processing</h2>
+        <ul>
+            <li><strong>Service Delivery:</strong> Forwarding MIDI commands to Ableton Live</li>
+            <li><strong>VIP Session Management:</strong> Managing time-limited premium access</li>
+            <li><strong>Real-time Sync:</strong> Bidirectional communication between extension and DAW</li>
+        </ul>
+
+        <h2>4. Data Sharing</h2>
+        <p>Your data is <strong>never sold or shared with third parties</strong>. Processing occurs only:</p>
+        <ul>
+            <li>On our backend server for command forwarding</li>
+            <li>Via Twitch PubSub for real-time updates to connected clients</li>
+            <li>Optional: VDO.Ninja for low-latency audio streaming (separate service)</li>
+        </ul>
+
+        <h2>5. Data Retention</h2>
+        <ul>
+            <li><strong>Session Data:</strong> Stored only during active sessions, deleted automatically upon expiration
+            </li>
+            <li><strong>Transaction Data:</strong> Retained for 30 days for tracking purposes</li>
+            <li><strong>No permanent storage</strong> of personal data outside of sessions</li>
+        </ul>
+
+        <h2>6. Your Rights</h2>
+        <p>You have the right to:</p>
+        <ul>
+            <li><strong>Access</strong> your stored data</li>
+            <li><strong>Delete</strong> your data</li>
+            <li><strong>Object</strong> to processing</li>
+            <li><strong>File a complaint</strong> with a supervisory authority</li>
+        </ul>
+
+        <h2>7. Security</h2>
+        <ul>
+            <li>HTTPS encryption for all connections</li>
+            <li>JWT token authentication for API access</li>
+            <li>WebSocket Secure (WSS) for real-time communication</li>
+        </ul>
+
+        <h2>8. Third-Party Services</h2>
+        <ul>
+            <li><strong>Twitch:</strong> Platform authentication and PubSub</li>
+            <li><strong>VDO.Ninja:</strong> Optional audio streaming</li>
+            <li><strong>Google Fonts:</strong> Typography (Inter, Orbitron)</li>
+        </ul>
+
+        <h2>9. Contact</h2>
+        <p>For privacy questions: <a href="mailto:info@flairtec.de">info@flairtec.de</a></p>
+
+        <div class="footer">
+            <p>© 2026 Flairtec | Ableton Live Controller Extension</p>
+            <p><a href="eula-en.html">Terms of Service (EULA)</a></p>
+        </div>
+    </div>
+</body>
+
+</html>

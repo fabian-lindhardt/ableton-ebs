@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide d'Utilisation - Ableton Live Controller</title>
+    <style>
+        :root {
+            --bg-primary: #0e0e10;
+            --bg-secondary: #18181b;
+            --bg-tertiary: #1f1f23;
+            --text-primary: #efeff1;
+            --text-secondary: #adadb8;
+            --accent: #9147ff;
+            --accent-teal: #00ffd2;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--accent), #5c2d91);
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .lang-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .lang-switch a {
+            background: var(--bg-tertiary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .lang-switch a.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            color: var(--text-primary);
+            margin: 20px 0 10px;
+            border-left: 3px solid var(--accent-teal);
+            padding-left: 12px;
+        }
+
+        p,
+        li {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        ul,
+        ol {
+            margin-left: 25px;
+        }
+
+        strong {
+            color: var(--text-primary);
+        }
+
+        .info-box {
+            background: rgba(145, 71, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            border-top: 1px solid #333;
+            margin-top: 40px;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <h1>🎛️ Ableton Live Controller</h1>
+        <p>Contrôlez Ableton Live directement depuis Twitch !</p>
+    </div>
+    <div class="container">
+        <div class="lang-switch">
+            <a href="guide-en.html">English</a>
+            <a href="guide-de.html">Deutsch</a>
+            <a href="guide-es.html">Español</a>
+            <a href="guide-fr.html" class="active">Français</a>
+            <a href="guide-pt.html">Português</a>
+        </div>
+        <div class="section">
+            <h2>📖 Aperçu</h2>
+            <p>L'extension <strong>Ableton Live Controller</strong> connecte vos spectateurs à votre DAW en temps réel.
+            </p>
+            <div class="info-box"><strong>💡 Comment ça marche :</strong> Action → Extension Twitch → Serveur EBS →
+                Bridge Local → Ableton Live</div>
+        </div>
+        <div class="section">
+            <h2>👁️ Pour les Spectateurs</h2>
+            <ol>
+                <li><strong>Ouvrez le panneau</strong> de l'extension</li>
+                <li><strong>Attendez la connexion</strong> - Le statut affichera "Ready"</li>
+                <li><strong>Interagissez avec les contrôles</strong></li>
+                <li><strong>Débloquez VIP</strong> (optionnel) avec des Bits</li>
+            </ol>
+        </div>
+        <div class="section">
+            <h2>📡 Pour les Streamers</h2>
+            <ol>
+                <li>Installez le Local Bridge</li>
+                <li>Installez le device Max for Live</li>
+                <li>Configurez l'extension sur Twitch</li>
+                <li>Mappez les contrôles MIDI dans Ableton</li>
+            </ol>
+            <div class="warning-box"><strong>⚠️ Important :</strong> Le Local Bridge doit fonctionner avant de diffuser
+                !</div>
+        </div>
+        <div class="section">
+            <h2>🔧 Dépannage</h2>
+            <h3>"Bridge not connected"</h3>
+            <p>Démarrez le bridge et vérifiez votre pare-feu.</p>
+            <h3>Contrôles non réactifs</h3>
+            <p>Vérifiez le mapping MIDI dans Ableton (Cmd/Ctrl + M).</p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Flairtec</p>
+            <p><a href="privacy-fr.html">Confidentialité</a> · <a href="eula-fr.html">Conditions</a></p>
+        </div>
+    </div>
+</body>
+
+</html>

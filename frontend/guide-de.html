@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benutzerhandbuch - Ableton Live Controller Extension</title>
+    <style>
+        :root {
+            --bg-primary: #0e0e10;
+            --bg-secondary: #18181b;
+            --bg-tertiary: #1f1f23;
+            --text-primary: #efeff1;
+            --text-secondary: #adadb8;
+            --accent: #9147ff;
+            --accent-teal: #00ffd2;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--accent) 0%, #5c2d91 100%);
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .lang-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .lang-switch a {
+            background: var(--bg-tertiary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .lang-switch a:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .lang-switch a.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .toc {
+            background: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+        }
+
+        .toc h2 {
+            color: var(--accent-teal);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .toc ul {
+            list-style: none;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            color: var(--accent);
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            margin: 20px 0 10px;
+            border-left: 3px solid var(--accent-teal);
+            padding-left: 12px;
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+
+        ul,
+        ol {
+            margin-left: 25px;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        strong {
+            color: var(--text-primary);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent);
+        }
+
+        .feature-card .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .feature-card h4 {
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        .step {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            align-items: flex-start;
+        }
+
+        .step-num {
+            background: var(--accent);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h4 {
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .info-box {
+            background: rgba(145, 71, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .success-box {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .control-demo {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .demo-item {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            width: 120px;
+        }
+
+        .demo-item .icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .demo-item span {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        code {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--accent-teal);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid #333;
+            margin-top: 40px;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <h1>🎛️ Ableton Live Controller</h1>
+        <p>Steuere Ableton Live direkt über Twitch! Diese Anleitung zeigt dir alles, was du wissen musst.</p>
+    </div>
+
+    <div class="container">
+        <div class="lang-switch">
+            <a href="guide-en.html">English</a>
+            <a href="guide-de.html" class="active">Deutsch</a>
+            <a href="guide-es.html">Español</a>
+            <a href="guide-fr.html">Français</a>
+            <a href="guide-pt.html">Português</a>
+        </div>
+
+        <!-- Inhaltsverzeichnis -->
+        <div class="toc">
+            <h2>📑 Inhalt</h2>
+            <ul>
+                <li><a href="#overview">1. Übersicht</a></li>
+                <li><a href="#features">2. Funktionen</a></li>
+                <li><a href="#controls">3. Steuerungstypen</a></li>
+                <li><a href="#viewer-guide">4. Für Zuschauer</a></li>
+                <li><a href="#broadcaster-guide">5. Für Streamer</a></li>
+                <li><a href="#vip">6. VIP-Sessions</a></li>
+                <li><a href="#troubleshooting">7. Problemlösung</a></li>
+            </ul>
+        </div>
+
+        <!-- Übersicht -->
+        <div class="section" id="overview">
+            <h2>📖 1. Übersicht</h2>
+            <p>Die <strong>Ableton Live Controller</strong> Twitch-Erweiterung verbindet deine Zuschauer direkt mit
+                deiner DAW. Zuschauer können in Echtzeit mit deiner Musikproduktion interagieren – von Lautstärke und
+                Filtern bis hin zu Clips und Effekten.</p>
+
+            <div class="info-box">
+                <strong>💡 So funktioniert's:</strong>
+                <p>Zuschauer-Aktion → Twitch Extension → EBS Server → Lokale Bridge → Ableton Live</p>
+            </div>
+        </div>
+
+        <!-- Funktionen -->
+        <div class="section" id="features">
+            <h2>✨ 2. Funktionen</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">🎚️</div>
+                    <h4>MIDI-Steuerung</h4>
+                    <p>Fader, Regler, Buttons, XY-Pads</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔄</div>
+                    <h4>Echtzeit-Sync</h4>
+                    <p>Änderungen in Ableton werden sofort synchronisiert</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🎵</div>
+                    <h4>Session-Grid</h4>
+                    <p>Clips direkt aus dem Panel starten</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔊</div>
+                    <h4>VDO.Ninja Audio</h4>
+                    <p>Low-Latency Audio für VIPs</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">💎</div>
+                    <h4>Bits-Integration</h4>
+                    <p>Monetarisierung mit VIP-Zugang</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">⚙️</div>
+                    <h4>Konfigurierbar</h4>
+                    <p>Streamer bestimmen die Controls</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Steuerungstypen -->
+        <div class="section" id="controls">
+            <h2>🎛️ 3. Steuerungstypen</h2>
+
+            <div class="control-demo">
+                <div class="demo-item">
+                    <div class="icon">🎚️</div><span>Fader</span>
+                </div>
+                <div class="demo-item">
+                    <div class="icon">🎛️</div><span>Regler</span>
+                </div>
+                <div class="demo-item">
+                    <div class="icon">🔘</div><span>Button</span>
+                </div>
+                <div class="demo-item">
+                    <div class="icon">🔀</div><span>Toggle</span>
+                </div>
+                <div class="demo-item">
+                    <div class="icon">📐</div><span>XY-Pad</span>
+                </div>
+                <div class="demo-item">
+                    <div class="icon">▶️</div><span>Transport</span>
+                </div>
+            </div>
+
+            <h3>Fader</h3>
+            <p>Ziehe nach oben/unten um CC-Werte (0-127) zu senden. Perfekt für Lautstärke, Filter oder jeden
+                kontinuierlichen Parameter. Klicke auf den Wert, um eine exakte Zahl einzugeben.</p>
+
+            <h3>Regler (Knob)</h3>
+            <p>Ziehe nach oben/unten zum Drehen. Ideal für Pan, Effect-Sends oder Synth-Parameter.</p>
+
+            <h3>Button / Note Pad</h3>
+            <p>Klicken sendet eine MIDI-Note oder CC-Burst. Perfekt für One-Shots, Samples oder Szenen-Wechsel.</p>
+
+            <h3>Toggle</h3>
+            <p>Klicken schaltet zwischen An (127) und Aus (0). Ideal für Mute/Solo, Effect-Bypass oder Loop-Toggles.</p>
+
+            <h3>XY-Pad</h3>
+            <p>Ziehe zum Steuern von zwei CC-Werten gleichzeitig (X- und Y-Achse). Super für Kaoss-Pad-Effekte.</p>
+
+            <h3>Transport</h3>
+            <p>Play, Stop und Restart für Abletons Transport-Steuerung.</p>
+        </div>
+
+        <!-- Für Zuschauer -->
+        <div class="section" id="viewer-guide">
+            <h2>👁️ 4. Für Zuschauer</h2>
+
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h4>Extension-Panel öffnen</h4>
+                    <p>Finde die Erweiterung unter dem Stream oder als Overlay. Klicke zum Erweitern.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h4>Auf Verbindung warten</h4>
+                    <p>Der Status zeigt "Connecting..." und dann "Ready" wenn der Streamer aktiv ist.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h4>Mit Controls interagieren</h4>
+                    <p>Nutze die Fader, Regler und Buttons. Deine Aktionen beeinflussen die Musik in Echtzeit!</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                    <h4>VIP freischalten (Optional)</h4>
+                    <p>Klicke 💎 UNLOCK und gib Bits aus für volle Kontrolle + Audio für 5 Minuten.</p>
+                </div>
+            </div>
+
+            <div class="success-box">
+                <strong>💡 Tipp:</strong> Nutze den "Pop-out"-Modus für ein größeres Control-Panel!
+            </div>
+        </div>
+
+        <!-- Für Streamer -->
+        <div class="section" id="broadcaster-guide">
+            <h2>📡 5. Für Streamer</h2>
+
+            <h3>Ersteinrichtung</h3>
+            <ol>
+                <li><strong>Local Bridge installieren</strong> – Lade die Bridge-Anwendung herunter und starte sie</li>
+                <li><strong>Max for Live Device installieren</strong> – Lade das M4L-Device in Ableton für
+                    Track-Scanning</li>
+                <li><strong>Extension konfigurieren</strong> – Gehe zur Extension-Config in deinem Twitch-Dashboard</li>
+                <li><strong>MIDI-Controls mappen</strong> – Nutze Abletons MIDI Learn zum Zuordnen</li>
+            </ol>
+
+            <h3>Konfigurations-Panel</h3>
+            <ul>
+                <li>Eigene Trigger hinzufügen (Fader, Regler, Buttons, etc.)</li>
+                <li>MIDI-Kanäle und Controller-Nummern festlegen</li>
+                <li>Bit-Kosten für Premium-Controls konfigurieren</li>
+                <li>VDO.Ninja Room-ID für Audio-Streaming einrichten</li>
+                <li>Controls mit Ableton-Tracks verknüpfen (Smart Sync)</li>
+            </ul>
+
+            <div class="warning-box">
+                <strong>⚠️ Wichtig:</strong> Stelle sicher, dass deine Local Bridge läuft bevor du live gehst!
+            </div>
+
+            <h3>MIDI-Mapping in Ableton</h3>
+            <ol>
+                <li>Drücke <code>Cmd/Strg + M</code> für MIDI-Map-Modus</li>
+                <li>Klicke auf den Parameter, den du steuern willst</li>
+                <li>Bewege das entsprechende Control in der Extension</li>
+                <li>Drücke <code>Cmd/Strg + M</code> zum Beenden</li>
+            </ol>
+        </div>
+
+        <!-- VIP-Sessions -->
+        <div class="section" id="vip">
+            <h2>💎 6. VIP-Sessions</h2>
+
+            <p>VIP-Sessions schalten das volle Potenzial der Extension frei:</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">🎚️</div>
+                    <h4>Volle Kontrolle</h4>
+                    <p>Zugriff auf alle konfigurierten Trigger</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔊</div>
+                    <h4>VDO.Ninja Audio</h4>
+                    <p>Höre Low-Latency Audio direkt</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">⚡</div>
+                    <h4>Priorität</h4>
+                    <p>Deine Befehle werden zuerst verarbeitet</p>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>So schaltest du frei:</strong>
+                <ol>
+                    <li>Klicke auf 💎 UNLOCK im Header</li>
+                    <li>Bestätige den Bits-Kauf (100 Bits = 5 Minuten)</li>
+                    <li>Genieße volle Kontrolle bis der Timer abläuft!</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Problemlösung -->
+        <div class="section" id="troubleshooting">
+            <h2>🔧 7. Problemlösung</h2>
+
+            <h3>"Bridge not connected"</h3>
+            <p>Die Local Bridge läuft nicht oder ist nicht erreichbar. Starte die Bridge und prüfe deine Firewall.</p>
+
+            <h3>Controls reagieren nicht</h3>
+            <ul>
+                <li>Überprüfe das MIDI-Mapping in Ableton (Cmd/Strg + M)</li>
+                <li>Stelle sicher, dass der richtige MIDI-Port in der Bridge ausgewählt ist</li>
+                <li>Prüfe, ob die VIP-Session aktiv ist (wenn Controls VIP benötigen)</li>
+            </ul>
+
+            <h3>Kein Audio im VIP-Modus</h3>
+            <ul>
+                <li>Klicke den "🔊 JOIN AUDIO" Button nach dem Freischalten</li>
+                <li>Erlaube Browser-Berechtigungen für Audio-Autoplay</li>
+                <li>Überprüfe die VDO.Ninja Room-ID in der Konfiguration</li>
+            </ul>
+
+            <h3>Session-Grid aktualisiert nicht</h3>
+            <p>Stelle sicher, dass das Max for Live Device auf einem Track in deinem Ableton-Projekt geladen ist.</p>
+
+            <div class="info-box">
+                <strong>Noch Hilfe nötig?</strong>
+                <p>Kontaktiere uns unter <a href="mailto:info@flairtec.de">info@flairtec.de</a></p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2026 Flairtec | Ableton Live Controller Extension</p>
+            <p>
+                <a href="privacy.html">Datenschutz</a> ·
+                <a href="eula.html">Nutzungsbedingungen</a>
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -207,8 +207,8 @@
 					"numinlets" : 1,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 520.0, 570.0, 79.0, 22.0 ],
-					"text" : "prepend port"
+					"patching_rect" : [ 520.0, 570.0, 120.0, 22.0 ],
+					"text" : "prepend set_midi_port"
 				}
 
 			}
@@ -593,8 +593,8 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-midiout", 0 ],
-					"midpoints" : [ 529.5, 595.0, 189.5, 595.0, 189.5, 395.0, 189.5, 395.0 ],
+					"destination" : [ "obj-1", 0 ],
+					"midpoints" : [ 529.5, 595.0, 309.5, 595.0, 309.5, 90.0, 309.5, 90.0 ],
 					"source" : [ "obj-44", 0 ]
 				}
 

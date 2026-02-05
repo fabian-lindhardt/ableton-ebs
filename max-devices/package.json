@@ -1,0 +1,13 @@
+{
+  "name": "twitch-ableton-bridge-m4l",
+  "version": "1.0.0",
+  "description": "Node.js script for Twitch Ableton Bridge M4L Device",
+  "main": "bridge.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "ws": "^8.0.0"
+  }
+}

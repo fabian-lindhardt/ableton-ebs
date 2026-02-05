@@ -1,0 +1,11 @@
+{
+    "name": "twitch-ableton-m4l-bridge",
+    "version": "1.0.0",
+    "description": "M4L Bridge for Twitch Ableton Extension",
+    "main": "bridge.js",
+    "dependencies": {
+        "dotenv": "^16.3.1",
+        "jzz": "^1.8.6",
+        "ws": "^8.14.2"
+    }
+}

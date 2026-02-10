@@ -8,7 +8,40 @@ const SKU_DURATIONS = {
     'vip_1min': 1 * 60 * 1000,
     'vip_5min': 5 * 60 * 1000,
     'vip_15min': 15 * 60 * 1000,
+    'free_vip': 1 * 60 * 1000, // 1 min free trial
 };
+
+const FREE_VIP_COOLDOWN = 5 * 60 * 1000;
+const freeVipCooldowns = new Map(); // userId -> timestamp
+
+function activateFreeVip(userId) {
+    const now = Date.now();
+    const lastUsed = freeVipCooldowns.get(userId) || 0;
+    
+    if (now - lastUsed < FREE_VIP_COOLDOWN) {
+        return { 
+            success: false, 
+            remainingSeconds: Math.ceil((FREE_VIP_COOLDOWN - (now - lastUsed)) / 1000) 
+        };
+    }
+
+    // Set cooldown
+    freeVipCooldowns.set(userId, now);
+
+    // Create session (standard logic)
+    const duration = SKU_DURATIONS['free_vip'];
+    const expiresAt = now + duration;
+    
+    // Check if existing session is longer? No, free trial usually just adds time or replaces. 
+    // Simplified: Just set/overwrite session for free trial.
+    sessions.set(userId, { expiresAt, sku: 'free_vip' });
+    
+    console.log(`[Transactions] Free VIP activated for ${userId}`);
+    return { 
+        success: true, 
+        session: { userId, expiresAt, duration, sku: 'free_vip' } 
+    };
+}
 
 // Helper: Get Session Status
 function getSession(userId) {
@@ -127,5 +160,6 @@ module.exports = {
     addSessionTime,
     requireVip,
     createTransactionRouter,
+    activateFreeVip,
     SKU_DURATIONS
 };

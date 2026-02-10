@@ -242,9 +242,31 @@ app.get('/api/state', verifyTwitchToken, (req, res) => {
     });
 });
 
-const { addSessionTime, getSession, requireVip } = require('./transactions');
+const { addSessionTime, getSession, requireVip, activateFreeVip } = require('./transactions');
 
 // ... (Existing Routes) ...
+
+// Free VIP Handler
+app.post('/api/vip/free', verifyTwitchToken, (req, res) => {
+    const userId = req.user.user_id || req.user.opaque_user_id;
+
+    // Check for existing active session? NO, user might want to extend or switch.
+    // But logically, if they are already VIP, maybe block? 
+    // For now, let activateFreeVip handle logic (it only checks free cooldown).
+
+    const result = activateFreeVip(userId);
+
+    if (!result.success) {
+        return res.status(429).json({
+            success: false,
+            message: `Please wait ${Math.ceil(result.remainingSeconds / 60)} minutes before trying again.`,
+            remaining: result.remainingSeconds
+        });
+    }
+
+    console.log(`[VIP] Free Trial activated for ${userId}`);
+    res.json({ success: true, session: result.session });
+});
 
 // Transaction Handler (Frontend sends this after Bits are used)
 app.post('/api/transaction', verifyTwitchToken, (req, res) => {

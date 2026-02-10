@@ -1095,6 +1095,35 @@ if (unlockBtn) {
     console.warn("Unlock button NOT found in DOM!");
 }
 
+const freeUnlockBtn = document.getElementById('btn-unlock-free');
+if (freeUnlockBtn) {
+    freeUnlockBtn.addEventListener('click', () => {
+        console.log("Free Unlock button CLICKED!");
+        updateStatus('Requesting Free VIP...');
+
+        fetch(EBS_API.replace('/trigger', '/vip/free'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+            body: JSON.stringify({})
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    console.log("Free active!", data);
+                    activateVip(data.session.expiresAt);
+                    updateStatus('Free VIP Activated!');
+                } else {
+                    updateStatus(data.message || 'Failed');
+                    alert(data.message || 'Cooldown active');
+                }
+            })
+            .catch(err => {
+                console.error("Free VIP Error:", err);
+                updateStatus('Connection Error');
+            });
+    });
+}
+
 function makeEditable(el, getVal, onCommit) {
     el.style.cursor = 'text';
     el.addEventListener('click', (e) => {

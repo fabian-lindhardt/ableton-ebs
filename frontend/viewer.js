@@ -892,6 +892,8 @@ function checkSession() {
         .then(res => res.json())
         .then(data => {
             console.log("Session Check Result:", data);
+
+            // Handle VIP Activation
             if (data.success && data.session && (data.session.active || data.session.isActive)) {
                 console.log("Active session found, activating VIP.");
                 activateVip(data.session.expiresAt);
@@ -899,11 +901,58 @@ function checkSession() {
                 console.log("No active session, locking UI.");
                 lockInterface();
             }
+
+            // Handle Free VIP Cooldown Status
+            if (data.freeVipStatus) {
+                updateFreeVipButton(data.freeVipStatus);
+            }
         })
         .catch(err => {
             console.warn('EBS unreachable or error:', err);
             lockInterface();
         });
+}
+
+let freeVipInterval = null;
+
+function updateFreeVipButton(status) {
+    const btn = document.getElementById('btn-unlock-free');
+    if (!btn) return;
+
+    if (status.available) {
+        if (freeVipInterval) clearInterval(freeVipInterval);
+        btn.disabled = false;
+        btn.innerText = '🎁 Try Free (1m)';
+        btn.classList.remove('disabled');
+        return;
+    }
+
+    // Cooldown Active
+    btn.disabled = true;
+    btn.classList.add('disabled');
+
+    // Start local countdown
+    const expiresAt = status.cooldownExpiresAt;
+
+    if (freeVipInterval) clearInterval(freeVipInterval);
+
+    const updateBtn = () => {
+        const remaining = expiresAt - Date.now();
+        if (remaining <= 0) {
+            clearInterval(freeVipInterval);
+            btn.disabled = false;
+            btn.innerText = '🎁 Try Free (1m)';
+            btn.classList.remove('disabled');
+            // Optional: Re-check session to be sure?
+        } else {
+            const m = Math.floor(remaining / 60000);
+            const s = Math.floor((remaining % 60000) / 1000);
+            btn.innerText = `⏳ Wait ${m}:${s.toString().padStart(2, '0')}`;
+        }
+    };
+
+    updateBtn(); // Run once immediately
+    freeVipInterval = setInterval(updateBtn, 1000);
 }
 
 const hasVIP = () => document.getElementById('app').classList.contains('is-vip');
@@ -1114,6 +1163,12 @@ if (freeUnlockBtn) {
                     updateStatus('Free VIP Activated!');
                 } else {
                     updateStatus(data.message || 'Failed');
+                    // Update button immediately if status is returned
+                    if (data.remaining) {
+                        // We could reconstruct status or just fetchState/checkSession?
+                        // Simplest: just refresh session to get full status object
+                        checkSession();
+                    }
                     alert(data.message || 'Cooldown active');
                 }
             })

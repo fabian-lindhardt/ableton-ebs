@@ -242,7 +242,7 @@ app.get('/api/state', verifyTwitchToken, (req, res) => {
     });
 });
 
-const { addSessionTime, getSession, requireVip, activateFreeVip } = require('./transactions');
+const { addSessionTime, getSession, requireVip, activateFreeVip, getCooldownStatus } = require('./transactions');
 
 // ... (Existing Routes) ...
 
@@ -300,7 +300,10 @@ app.get('/api/session', verifyTwitchToken, (req, res) => {
         };
     }
 
-    res.json({ success: true, session });
+    // Check Free VIP Cooldown
+    const freeVipStatus = getCooldownStatus(userId);
+
+    res.json({ success: true, session, freeVipStatus });
 });
 
 // Initial State Fetch

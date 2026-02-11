@@ -27,7 +27,7 @@ spec:
         - name: NODE_ENV
           value: "production"
         - name: TWITCH_CHANNEL_ID
-          value: "407780947"
+          value: "452613971"
         - name: TWITCH_CLIENT_ID
           value: "61aryh4yx4v94a1309tk5dqz8kyrvp"
         - name: TWITCH_SECRET
